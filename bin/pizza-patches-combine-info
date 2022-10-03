@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+
+import os
+from pizza_patches.util import get_pizza_ids, get_pizza_id_dtype
+from tqdm import tqdm
+
+
+def get_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--info-files', nargs='+',
+        help='pizza cutter info files',
+        required=True,
+    )
+    parser.add_argument(
+        '--output',
+        help='combined pizza cutter info file',
+        required=True,
+    )
+    return parser.parse_args()
+
+
+def read_data(fname):
+    import fitsio
+    # print('reading:', fname)
+    data = fitsio.read(fname, columns=['id', 'ra', 'dec'])
+    tilename = os.path.basename(fname)[:12]
+    return tilename, data
+
+
+def get_output(tilename, data):
+    import numpy as np
+    dtype = [
+        ('pizza_id', get_pizza_id_dtype()),
+        ('ra', 'f8'),
+        ('dec', 'f8'),
+    ]
+    output = np.zeros(data.size, dtype=dtype)
+    output['pizza_id'] = get_pizza_ids(
+        tilenames=[tilename] * data.size,
+        slice_ids=data['id'],
+    )
+    return output
+
+
+def write_output(fname, olist):
+    import esutil as eu
+    import fitsio
+
+    output = eu.numpy_util.combine_arrlist(olist)
+
+    print('writing:', fname)
+    fitsio.write(fname, output, clobber=True)
+
+
+def main():
+    args = get_args()
+
+    olist = []
+    for fname in tqdm(args.info_files):
+        tilename, data = read_data(fname)
+        odata = get_output(tilename=tilename, data=data)
+        olist.append(odata)
+
+    write_output(args.output, olist)
+
+
+if __name__ == '__main__':
+    main()

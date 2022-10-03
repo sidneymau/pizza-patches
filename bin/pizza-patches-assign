@@ -17,6 +17,7 @@ def get_args():
         help='pizza cutter info file',
         required=True,
     )
+    return parser.parse_args()
 
 
 def read_catalog(fname):

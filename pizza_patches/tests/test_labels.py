@@ -32,10 +32,10 @@ def test_make_output():
 
     tilenames = ['DES0000-0333'] * ra.size
     slice_ids = np.arange(ra.size)
+    pizza_ids = get_pizza_ids(tilenames=tilenames, slice_ids=slice_ids)
 
     output = make_output(
-        tilenames=tilenames,
-        slice_ids=slice_ids,
+        pizza_ids=pizza_ids,
         labels=labels,
     )
 

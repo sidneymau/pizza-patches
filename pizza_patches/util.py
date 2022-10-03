@@ -1,7 +1,3 @@
-IDSIZE = 17
-ID_DTYPE = 'U%d' % IDSIZE
-
-
 def get_pizza_id(tilename, slice_id):
     return '%s-%04d' % (tilename, slice_id)
 
@@ -14,14 +10,20 @@ def get_pizza_ids(tilenames, slice_ids):
     ])
 
 
-def make_output(tilenames, slice_ids, labels):
+def get_pizza_id_dtype():
+    IDSIZE = 17
+    return 'U%d' % IDSIZE
+
+
+def make_output(pizza_ids, labels):
     import numpy as np
 
     # 12 for tilename, one for - and four for slice_id
+    id_dtype = get_pizza_id_dtype()
     output = np.zeros(
-        len(tilenames),
-        dtype=[('pizza_id', ID_DTYPE), ('patch_num', 'i2')],
+        len(pizza_ids),
+        dtype=[('pizza_id', id_dtype), ('patch_num', 'i2')],
     )
-    output['pizza_id'] = get_pizza_ids(tilenames, slice_ids)
+    output['pizza_id'] = pizza_ids
     output['patch_num'] = labels
     return output
