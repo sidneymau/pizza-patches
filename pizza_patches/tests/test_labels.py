@@ -50,5 +50,7 @@ def test_make_output():
 
     # also tests repeatability
     assert np.all(
-        output['patch_num'] == get_labels(ra=ra, dec=dec, npatch=NPATCH, seed=seed)
+        output['patch_num'] == get_labels(
+            ra=ra, dec=dec, npatch=NPATCH, seed=seed,
+        )
     )
