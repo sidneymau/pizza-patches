@@ -1,4 +1,4 @@
-from ..util import get_patch_ids
+from ..util import get_pizza_ids
 
 
 def test_ids():
@@ -24,7 +24,7 @@ def test_ids():
         for i in range(len(tilenames))
     ]
 
-    ids = get_patch_ids(tilenames=tilenames, slice_ids=slice_ids)
+    ids = get_pizza_ids(tilenames=tilenames, slice_ids=slice_ids)
     assert ids.size == len(tilenames)
     for i, id in enumerate(ids):
         assert len(id) == 17
