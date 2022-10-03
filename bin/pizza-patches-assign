@@ -60,6 +60,7 @@ def main():
         ra=info['ra'], dec=info['dec'],
         labels=labels,
     )
+    del info
     write_output(args.output, output)
 
 
