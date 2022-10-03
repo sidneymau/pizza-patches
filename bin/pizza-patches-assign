@@ -17,6 +17,19 @@ def get_args():
         help='pizza cutter info file',
         required=True,
     )
+    parser.add_argument(
+        '--npatch',
+        type=int,
+        default=150,
+        help='number of patches to use',
+    )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=998877,
+        help='number of patches to use',
+    )
+
     return parser.parse_args()
 
 
@@ -38,7 +51,9 @@ def main():
     info = read_catalog(args.info)
 
     print('getting labels')
-    labels = get_labels(info['ra'], info['dec'])
+    labels = get_labels(
+        info['ra'], info['dec'], npatch=args.npatch, seed=args.seed,
+    )
 
     output = make_output(
         pizza_ids=info['pizza_id'],

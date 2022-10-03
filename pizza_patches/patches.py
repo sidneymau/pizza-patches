@@ -1,10 +1,9 @@
-SEED = 998877
-NPATCH = 200
-
-
-def get_labels(ra, dec):
+def get_labels(ra, dec, npatch, seed):
     import treecorr
     import numpy as np
+
+    rng = np.random.RandomState(seed)
+
     cat = treecorr.Catalog(
         ra=ra,
         dec=dec,
@@ -13,7 +12,7 @@ def get_labels(ra, dec):
     )
     field = cat.getNField()
     labelnums, centers = field.run_kmeans(
-        NPATCH,
-        rng=np.random.RandomState(SEED),
+        npatch,
+        rng=rng,
     )
     return labelnums

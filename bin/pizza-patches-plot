@@ -18,7 +18,7 @@ def get_args():
     parser.add_argument(
         '--nrand',
         type=int,
-        default=10_000,
+        default=50_000,
         help='size of random subset to plot',
     )
     parser.add_argument(
@@ -37,9 +37,21 @@ def read_catalog(fname):
     return fitsio.read(fname)
 
 
+def get_colors(rng, npatch):
+    import random
+    import matplotlib.cm as cm
+    import numpy as np
+
+    random.seed(rng.randint(0, 2**20))
+
+    colors = list(cm.rainbow(np.linspace(0, 1, npatch)))
+    random.shuffle(colors)
+    colors = np.array(colors)
+    return colors
+
+
 def doplot(args, data):
     import matplotlib.pyplot as mplt
-    import matplotlib.cm as cm
     import numpy as np
     import skyproj
 
@@ -47,12 +59,10 @@ def doplot(args, data):
     rind = rng.randint(0, data.size, size=args.nrand)
 
     npatch = np.unique(data['patch_num']).size
-    colors = cm.rainbow(np.linspace(0, 1, npatch))
+    colors = get_colors(rng, npatch)
     fig, ax = mplt.subplots()
 
-    # sp = skyproj.McBrydeSkyproj(ax=ax)
     sp = skyproj.DESSkyproj(ax=ax)
-    # ax.scatter(
     sp.scatter(
         data['ra'][rind],
         data['dec'][rind],

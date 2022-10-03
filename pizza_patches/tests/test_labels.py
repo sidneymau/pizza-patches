@@ -1,7 +1,9 @@
 import numpy as np
 
-from ..patches import get_labels, NPATCH
+from ..patches import get_labels
 from ..util import make_output, get_pizza_ids
+
+NPATCH = 150
 
 
 def get_positions(seed):
@@ -21,14 +23,16 @@ def get_positions(seed):
 def test_labels():
 
     ra, dec = get_positions(seed=100)
-    labels = get_labels(ra=ra, dec=dec)
+    labels = get_labels(ra=ra, dec=dec, npatch=NPATCH, seed=12345)
     assert labels.size == ra.size
     assert np.unique(labels).size == NPATCH
 
 
 def test_make_output():
-    ra, dec = get_positions(seed=100)
-    labels = get_labels(ra=ra, dec=dec)
+    ra, dec = get_positions(seed=300)
+
+    seed = 8
+    labels = get_labels(ra=ra, dec=dec, npatch=NPATCH, seed=seed)
 
     tilenames = ['DES0000-0333'] * ra.size
     slice_ids = np.arange(ra.size)
@@ -43,4 +47,8 @@ def test_make_output():
     assert np.all(output['pizza_id'] == get_pizza_ids(tilenames, slice_ids))
     assert np.all(output['ra'] == ra)
     assert np.all(output['dec'] == dec)
-    assert np.all(output['patch_num'] == get_labels(ra=ra, dec=dec))
+
+    # also tests repeatability
+    assert np.all(
+        output['patch_num'] == get_labels(ra=ra, dec=dec, npatch=NPATCH, seed=seed)
+    )
