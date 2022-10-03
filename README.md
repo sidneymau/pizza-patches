@@ -28,7 +28,6 @@ output files and get the patch number
 ```python
 import os
 import fitsio
-# import esutil as eu
 from pizza_patches.util import get_pizza_ids
 
 
