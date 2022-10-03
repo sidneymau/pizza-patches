@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+from pizza_patches.util import get_patch_ids
+from pizza_patches.patches import get_labels
+
+
+def get_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--info',
+        help='pizza cutter info file',
+        required=True,
+    )
+    parser.add_argument(
+        '--output',
+        help='pizza cutter info file',
+        required=True,
+    )
+
+
+def read_catalog(fname):
+    import fitsio
+    print('reading:', fname)
+    return fitsio.read(fname)
+
+
+def write_output(fname, output):
+    import fitsio
+    print('writing:', fname)
+    fitsio.write(fname, output, clobber=True)
+
+
+def make_output(info, labels):
+    import numpy as np
+
+    # 12 for tilename, one for - and four for slice_id
+    output = np.zeros(info.size, dtype=[('id', 'U17'), ('patchnum', 'i2')])
+    output['patch_id'] = get_patch_ids(info['tilename'], info['id'])
+    output['patch_num'] = labels
+    return output
+
+
+def main():
+    args = get_args()
+
+    info = read_catalog(args.info)
+
+    labels = get_labels(info['ra'], info['dec'])
+
+    output = make_output(info, labels)
+    write_output(args.output, output)
+
+
+if __name__ == '__main__':
+    main()
