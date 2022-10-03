@@ -56,3 +56,6 @@ pizza_ids = get_pizza_ids(
 mpatches, mobjects = match_ids(patches['pizza_ids'], pizza_ids)
 patch_nums = patches['patch_num'][mpatches]
 ```
+Example patches
+----------------
+![Patches](data/patches150.png?raw=true "150 patches")
