@@ -41,6 +41,8 @@ def get_output(tilename, data):
         tilenames=[tilename] * data.size,
         slice_ids=data['id'],
     )
+    output['ra'] = data['ra']
+    output['dec'] = data['dec']
     return output
 
 

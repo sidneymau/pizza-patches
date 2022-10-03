@@ -15,15 +15,21 @@ def get_pizza_id_dtype():
     return 'U%d' % IDSIZE
 
 
-def make_output(pizza_ids, labels):
+def make_output(pizza_ids, ra, dec, labels):
     import numpy as np
 
     # 12 for tilename, one for - and four for slice_id
     id_dtype = get_pizza_id_dtype()
     output = np.zeros(
         len(pizza_ids),
-        dtype=[('pizza_id', id_dtype), ('patch_num', 'i2')],
+        dtype=[
+            ('pizza_id', id_dtype),
+            ('ra', 'f8'), ('dec', 'f8'),
+            ('patch_num', 'i2'),
+        ],
     )
     output['pizza_id'] = pizza_ids
+    output['ra'] = ra
+    output['dec'] = dec
     output['patch_num'] = labels
     return output

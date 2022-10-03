@@ -37,9 +37,14 @@ def main():
 
     info = read_catalog(args.info)
 
+    print('getting labels')
     labels = get_labels(info['ra'], info['dec'])
 
-    output = make_output(info['tilename'], info['id'], labels)
+    output = make_output(
+        pizza_ids=info['pizza_id'],
+        ra=info['ra'], dec=info['dec'],
+        labels=labels,
+    )
     write_output(args.output, output)
 
 

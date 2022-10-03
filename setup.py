@@ -16,7 +16,7 @@ scripts = glob('bin/*')
 scripts = [s for s in scripts if '~' not in s]
 
 setup(
-    name="pizza-cutter-masking",
+    name="pizza-patches",
     author="Erin Sheldon, Matt Becker",
     url="https://github.com/beckermr/pizza-patches",
     description=(

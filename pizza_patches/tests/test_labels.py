@@ -36,8 +36,11 @@ def test_make_output():
 
     output = make_output(
         pizza_ids=pizza_ids,
+        ra=ra, dec=dec,
         labels=labels,
     )
 
     assert np.all(output['pizza_id'] == get_pizza_ids(tilenames, slice_ids))
+    assert np.all(output['ra'] == ra)
+    assert np.all(output['dec'] == dec)
     assert np.all(output['patch_num'] == get_labels(ra=ra, dec=dec))
