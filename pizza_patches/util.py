@@ -15,6 +15,15 @@ def get_pizza_id_dtype():
     return 'U%d' % IDSIZE
 
 
+def get_patch_basename(patch_num):
+    return f'patch-{patch_num:04d}.fits'
+
+
+def get_patch_file(dir, patch_num):
+    import os
+    return os.path.join(dir, get_patch_basename(patch_num))
+
+
 def make_output(pizza_ids, ra, dec, labels):
     import numpy as np
 

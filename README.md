@@ -32,7 +32,7 @@ from pizza_patches.util import get_pizza_ids
 
 
 def match_ids(arr1, arr2, sort1=None):
-    if sortind1 is None:
+    if sort1 is None:
         sort1 = arr1.argsort()
     sub1 = np.searchsorted(arr1, arr2, sorter=sort1)
     sub2, = np.where(arr1[sort1[sub1]] == arr2)
