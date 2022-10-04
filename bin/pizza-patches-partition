@@ -49,7 +49,7 @@ def write_outputs_to_patch_files(data, patches, sind):
     """
     import esutil as eu
     import numpy as np
-    from pizza_patches.util import get_patch_file, get_pizza_ids
+    from pizza_patches.util import get_mdet_patch_file, get_pizza_ids
 
     print('    getting pizza ids')
     pizza_ids = get_pizza_ids(
@@ -76,7 +76,7 @@ def write_outputs_to_patch_files(data, patches, sind):
             assert np.unique(data['patch_num'][w]).size == 1
 
             patch_num = data['patch_num'][w[0]]
-            patch_file = get_patch_file(args.outdir, patch_num)
+            patch_file = get_mdet_patch_file(args.outdir, patch_num)
             print('        ', patch_file, w.size)
             create_or_append_output(patch_file, data[w])
 
@@ -240,9 +240,7 @@ def main(args):
     patches = read_fits(args.patches, verbose=True)
     sind = patches['pizza_id'].argsort()
 
-    nf = len(flist)
     for ii, fname in enumerate(tqdm(flist)):
-        # print(f'{ii+1}/{nf} {fname}')
         print(fname)
         data = read_catalog(fname=fname, uid_info=uid_info)
         if data.size == 0:

@@ -23,7 +23,6 @@ def get_args():
 
 def read_data(fname):
     import fitsio
-    # print('reading:', fname)
     data = fitsio.read(fname, columns=['id', 'ra', 'dec'])
     tilename = os.path.basename(fname)[:12]
     return tilename, data

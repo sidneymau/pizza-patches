@@ -1,8 +1,14 @@
 def get_pizza_id(tilename, slice_id):
+    """
+    defines a unique pizza slice id tilename-slice_id
+    """
     return '%s-%04d' % (tilename, slice_id)
 
 
 def get_pizza_ids(tilenames, slice_ids):
+    """
+    get pizza ids for a list of objects
+    """
     import numpy as np
     return np.array([
         get_pizza_id(tilename, slice_id)
@@ -10,41 +16,26 @@ def get_pizza_ids(tilenames, slice_ids):
     ])
 
 
-def get_pizza_id_dtype():
-    IDSIZE = 17
-    return 'U%d' % IDSIZE
-
-
-def get_patch_basename(patch_num):
+def get_mdet_patch_basename(patch_num):
+    """
+    get the mdet outputs file for a given patch
+    """
     return f'patch-{patch_num:04d}.fits'
 
 
-def get_patch_file(dir, patch_num):
+def get_mdet_patch_file(dir, patch_num):
+    """
+    get the full path mdet outputs file for a given patch
+    """
     import os
-    return os.path.join(dir, get_patch_basename(patch_num))
-
-
-def make_output(pizza_ids, ra, dec, labels):
-    import numpy as np
-
-    # 12 for tilename, one for - and four for slice_id
-    id_dtype = get_pizza_id_dtype()
-    output = np.zeros(
-        len(pizza_ids),
-        dtype=[
-            ('pizza_id', id_dtype),
-            ('ra', 'f8'), ('dec', 'f8'),
-            ('patch_num', 'i2'),
-        ],
-    )
-    output['pizza_id'] = pizza_ids
-    output['ra'] = ra
-    output['dec'] = dec
-    output['patch_num'] = labels
-    return output
+    return os.path.join(dir, get_mdet_patch_basename(patch_num))
 
 
 def load_flist(fname):
+    """
+    load a list of files from a file, one per line.  Drop
+    empty lines.
+    """
     print('reading flist:', fname)
     with open(fname) as fobj:
         flist = []

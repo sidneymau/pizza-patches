@@ -18,13 +18,13 @@ def get_args():
     parser.add_argument(
         '--nrand',
         type=int,
-        default=50_000,
+        default=200_000,
         help='size of random subset to plot',
     )
     parser.add_argument(
         '--seed',
         type=int,
-        default=99,
+        default=31415,
         help='seed for rng',
     )
 

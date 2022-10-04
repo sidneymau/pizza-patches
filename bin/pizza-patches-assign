@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-from pizza_patches.util import make_output
-from pizza_patches.patches import get_labels
+from pizza_patches.patches import get_labels, make_patches_output
 
 
 def get_args():
@@ -55,7 +54,7 @@ def main():
         info['ra'], info['dec'], npatch=args.npatch, seed=args.seed,
     )
 
-    output = make_output(
+    output = make_patches_output(
         pizza_ids=info['pizza_id'],
         ra=info['ra'], dec=info['dec'],
         labels=labels,
