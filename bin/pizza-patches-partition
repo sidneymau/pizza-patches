@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# from tqdm import tqdm
+from tqdm import tqdm
 
 
 def get_args():
@@ -79,8 +79,9 @@ def read_fits(fname, columns=None, verbose=False):
     return fitsio.read(fname, columns=columns)
 
 
-def read_catalog(fname):
+def read_catalog(fname, idstart):
     import numpy as np
+    import esutil as eu
     columns = [
         'tilename',
         'slice_id',
@@ -111,15 +112,15 @@ def read_catalog(fname):
         'wmom_T_ratio',
         'wmom_psf_T',
 
-        'pgauss_flags',
+        # 'pgauss_flags',
         'pgauss_T_flags',
         'pgauss_T_err',
-        'pgauss_T_ratio',
-        'pgauss_psf_T',
-        # 'pgauss_band_flux_flags_g',
-        # 'pgauss_band_flux_flags_r',
-        # 'pgauss_band_flux_flags_i',
-        # 'pgauss_band_flux_flags_z',
+        'pgauss_T',
+        # 'pgauss_psf_T',
+        'pgauss_band_flux_flags_g',
+        'pgauss_band_flux_flags_r',
+        'pgauss_band_flux_flags_i',
+        'pgauss_band_flux_flags_z',
         'pgauss_band_flux_g',
         'pgauss_band_flux_r',
         'pgauss_band_flux_i',
@@ -130,11 +131,18 @@ def read_catalog(fname):
         # 'pgauss_band_flux_err_z',
     ]
     data = read_fits(fname, columns=columns)
+    data = eu.numpy_util.add_fields(data, [('uid', 'i8')])
+    data['uid'] = idstart + np.arange(data.size)
+
+    idstart = idstart + data.size
+
     w, = np.where(data['shear_bands'] == '123')
     if w.size == 0:
-        return None
+        data = None
     else:
-        return data[w]
+        data = data[w]
+
+    return data, idstart
 
 
 def match_ids(arr1, arr2, sort1=None):
@@ -164,11 +172,12 @@ def main(args):
     patches = read_fits(args.patches, verbose=True)
     sind = patches['pizza_id'].argsort()
 
+    idstart = 0
     nf = len(args.flist)
-    # for fname in tqdm(args.flist):
-    for ii, fname in enumerate(args.flist):
+    #  for ii, fname in enumerate(args.flist):
+    for ii, fname in enumerate(tqdm(args.flist)):
         print(f'{ii+1}/{nf} {fname}')
-        data = read_catalog(fname)
+        data, idstart = read_catalog(fname=fname, idstart=idstart)
         if data is None:
             print('no objects passed basic cut')
             continue
