@@ -42,3 +42,22 @@ def make_output(pizza_ids, ra, dec, labels):
     output['dec'] = dec
     output['patch_num'] = labels
     return output
+
+
+def load_flist(fname):
+    print('reading flist:', fname)
+    with open(fname) as fobj:
+        flist = []
+        for line in fobj:
+            line = line.strip()
+            if line != '':
+                flist.append(line)
+    return flist
+
+
+def load_yaml(fname):
+    import yaml
+    print('reading:', fname)
+    with open(fname) as fobj:
+        data = yaml.safe_load(fobj)
+    return data
