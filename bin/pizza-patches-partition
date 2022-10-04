@@ -1,19 +1,25 @@
 #!/usr/bin/env python
 
 from tqdm import tqdm
+from pizza_patches.util import load_flist, load_yaml
 
 
 def get_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--flist', nargs='+',
-        help='metadetect output files',
+        '--flist',
+        help='file holding metadetect output files',
         required=True,
     )
     parser.add_argument(
         '--patches',
         help='pizza cutter patches file',
+        required=True,
+    )
+    parser.add_argument(
+        '--uid-info',
+        help='file holding uid info',
         required=True,
     )
     parser.add_argument(
@@ -27,6 +33,7 @@ def get_args():
 
 def create_or_append_output(fname, output):
     import fitsio
+
     with fitsio.FITS(fname, 'rw') as fits:
         if 'object_data' not in fits:
             fits.write(output)
@@ -35,16 +42,21 @@ def create_or_append_output(fname, output):
 
 
 def write_outputs_to_patch_files(data, patches, sind):
+    """
+    write the outputs into the appropriate patch files
+
+    the patch_num field in data is filled in
+    """
     import esutil as eu
     import numpy as np
     from pizza_patches.util import get_patch_file, get_pizza_ids
 
-    print('    getting ids')
+    print('    getting pizza ids')
     pizza_ids = get_pizza_ids(
         data['tilename'], data['slice_id'],
     )
 
-    print('    matching')
+    print('    matching to get patch numbers')
     mpatches, mdata = match_ids(
         arr1=patches['pizza_id'],
         arr2=pizza_ids,
@@ -53,23 +65,20 @@ def write_outputs_to_patch_files(data, patches, sind):
     assert mdata.size == data.size
 
     print('    writing outputs')
-    patch_nums = patches['patch_num'][mpatches]
-    output = make_output(data, patch_nums)
+    data['patch_num'] = patches['patch_num'][mpatches]
 
-    hist, rev = eu.stat.histogram(patch_nums, rev=True)
+    hist, rev = eu.stat.histogram(data['patch_num'], rev=True)
     for i in range(hist.size):
-        if rev[i] != rev[i+1]:
-            w = rev[rev[i]:rev[i+1]]
+        if rev[i] != rev[i + 1]:
+            w = rev[rev[i]:rev[i + 1]]
 
             # should all be the same
-            assert np.unique(output['patch_num'][w]).size == 1
+            assert np.unique(data['patch_num'][w]).size == 1
 
-            patch_num = output['patch_num'][w[0]]
+            patch_num = data['patch_num'][w[0]]
             patch_file = get_patch_file(args.outdir, patch_num)
             print('        ', patch_file, w.size)
-            create_or_append_output(patch_file, output[w])
-
-    del output
+            create_or_append_output(patch_file, data[w])
 
 
 def read_fits(fname, columns=None, verbose=False):
@@ -79,74 +88,127 @@ def read_fits(fname, columns=None, verbose=False):
     return fitsio.read(fname, columns=columns)
 
 
-def read_catalog(fname, idstart):
+def make_output(data):
     import numpy as np
-    import esutil as eu
-    columns = [
-        'tilename',
-        'slice_id',
-        'ra',
-        'dec',
-        'mdet_step',
+    dtype = get_output_dtype()
+    output = np.zeros(data.size, dtype=dtype)
 
-        'mask_flags',
-        'mfrac',
-        'mfrac_img',
+    for name in output.dtype.names:
+        if name in ('uid', 'patch_num'):
+            continue
+        output[name] = data[name]
 
-        'shear_bands',
+    output['patch_num'] = -9999
+    output['uid'] = -9999
 
-        'psfrec_flags',
-        'psfrec_g_1',
-        'psfrec_g_2',
-        'psfrec_T',
+    return output
 
-        'wmom_flags',
-        'wmom_s2n',
-        'wmom_g_1',
-        'wmom_g_2',
-        'wmom_g_cov_1_1',
-        'wmom_g_cov_1_2',
-        'wmom_g_cov_2_2',
-        'wmom_T_flags',
-        'wmom_T_err',
-        'wmom_T_ratio',
-        'wmom_psf_T',
 
-        # 'pgauss_flags',
-        'pgauss_T_flags',
-        'pgauss_T_err',
-        'pgauss_T',
-        # 'pgauss_psf_T',
-        'pgauss_band_flux_flags_g',
-        'pgauss_band_flux_flags_r',
-        'pgauss_band_flux_flags_i',
-        'pgauss_band_flux_flags_z',
-        'pgauss_band_flux_g',
-        'pgauss_band_flux_r',
-        'pgauss_band_flux_i',
-        'pgauss_band_flux_z',
-        # 'pgauss_band_flux_err_g',
-        # 'pgauss_band_flux_err_r',
-        # 'pgauss_band_flux_err_i',
-        # 'pgauss_band_flux_err_z',
+def get_output_dtype():
+    return [
+        ('uid', 'i4'),
+        ('patch_num', 'i2'),
+
+        ('tilename', 'U12'),
+        ('slice_id', 'i2'),
+
+        ('mdet_step', 'U7'),
+
+        ('ra', 'f8'),
+        ('dec', 'f8'),
+        ('x', 'f4'),
+        ('y', 'f4'),
+
+        ('mfrac', 'f4'),
+        ('mfrac_img', 'f4'),
+
+        ('nepoch_g', 'i4'),
+        ('nepoch_r', 'i4'),
+        ('nepoch_i', 'i4'),
+        ('nepoch_z', 'i4'),
+
+        ('psfrec_g_1', 'f8'),
+        ('psfrec_g_2', 'f8'),
+        ('psfrec_T', 'f4'),
+
+        ('wmom_s2n', 'f4'),
+        ('wmom_g_1', 'f8'),
+        ('wmom_g_2', 'f8'),
+        ('wmom_g_cov_1_1', 'f4'),
+        ('wmom_g_cov_1_2', 'f4'),
+        ('wmom_g_cov_2_2', 'f4'),
+        ('wmom_T_err', 'f4'),
+        ('wmom_T_ratio', 'f4'),
+        ('wmom_psf_T', 'f4'),
+
+        ('pgauss_T_err', 'f4'),
+        ('pgauss_T', 'f4'),
+        ('pgauss_psf_T', 'f4'),
+        ('pgauss_band_flux_g', 'f4'),
+        ('pgauss_band_flux_r', 'f4'),
+        ('pgauss_band_flux_i', 'f4'),
+        ('pgauss_band_flux_z', 'f4'),
+        ('pgauss_band_flux_err_g', 'f4'),
+        ('pgauss_band_flux_err_r', 'f4'),
+        ('pgauss_band_flux_err_i', 'f4'),
+        ('pgauss_band_flux_err_z', 'f4'),
     ]
-    data = read_fits(fname, columns=columns)
-    data = eu.numpy_util.add_fields(data, [('uid', 'i8')])
-    data['uid'] = idstart + np.arange(data.size)
 
-    idstart = idstart + data.size
 
-    w, = np.where(data['shear_bands'] == '123')
-    if w.size == 0:
-        data = None
-    else:
-        data = data[w]
+def read_catalog(fname, uid_info):
+    """
+    read the catalog and add uid and patch_num fields.  The uid is
+    set but patch_num is left as -9999
 
-    return data, idstart
+    Some data types what are not used for precise aggregates are down converted
+    to smaller precision.
+
+    Only shear_bands 123 is kept but note the objects still have the correct
+    uid
+
+    Parameters
+    ----------
+    fname: str
+        Path to the metadetect output
+    uid_info: dict
+        Keyed by file path basename, holds keys uid_start and uid_end
+
+    Returns
+    -------
+    data with a subset of cols
+    """
+    import numpy as np
+    import os
+
+    orig_data = read_fits(fname)
+
+    data = make_output(orig_data)
+
+    info = uid_info[os.path.basename(fname)]
+    data['uid'] = np.arange(info['uid_start'], info['uid_end'])
+
+    # not all of these are in output
+    w, = np.where(
+        (orig_data['psfrec_flags'] == 0) &
+        (orig_data['wmom_flags'] == 0) &
+        (orig_data['wmom_s2n'] > 5) &
+        (orig_data['pgauss_T_flags'] == 0) &
+        (orig_data['pgauss_s2n'] > 5) &
+        (orig_data['pgauss_band_flux_flags_g'] == 0) &
+        (orig_data['pgauss_band_flux_flags_r'] == 0) &
+        (orig_data['pgauss_band_flux_flags_i'] == 0) &
+        (orig_data['pgauss_band_flux_flags_z'] == 0) &
+        (orig_data['mask_flags'] == 0) &
+        (orig_data['shear_bands'] == '123')
+    )
+    data = data[w]
+
+    return data
 
 
 def match_ids(arr1, arr2, sort1=None):
     import numpy as np
+
     if sort1 is None:
         sort1 = arr1.argsort()
 
@@ -157,28 +219,34 @@ def match_ids(arr1, arr2, sort1=None):
     return sub1, sub2
 
 
-def make_output(data, patch_nums):
-    import esutil as eu
-    output = eu.numpy_util.add_fields(
-        data,
-        [('patch_num', 'i2')]
-    )
-    output['patch_num'] = patch_nums
-    return output
+def make_outdir(outdir):
+    import os
+    from glob import glob
+
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+        print('created directory:', outdir)
+    else:
+        flist = glob(outdir + '/*')
+        if len(flist) > 0:
+            raise RuntimeError(f'outdir {outdir} is not empty')
 
 
 def main(args):
 
+    make_outdir(args.outdir)
+
+    uid_info = load_yaml(args.uid_info)
+    flist = load_flist(args.flist)
     patches = read_fits(args.patches, verbose=True)
     sind = patches['pizza_id'].argsort()
 
-    idstart = 0
-    nf = len(args.flist)
-    #  for ii, fname in enumerate(args.flist):
-    for ii, fname in enumerate(tqdm(args.flist)):
-        print(f'{ii+1}/{nf} {fname}')
-        data, idstart = read_catalog(fname=fname, idstart=idstart)
-        if data is None:
+    nf = len(flist)
+    for ii, fname in enumerate(tqdm(flist)):
+        # print(f'{ii+1}/{nf} {fname}')
+        print(fname)
+        data = read_catalog(fname=fname, uid_info=uid_info)
+        if data.size == 0:
             print('no objects passed basic cut')
             continue
 
