@@ -163,8 +163,7 @@ def read_catalog(fname, uid_info):
     Some data types what are not used for precise aggregates are down converted
     to smaller precision.
 
-    Only shear_bands 123 is kept but note the objects still have the correct
-    uid
+    Various cuts are applied
 
     Parameters
     ----------
@@ -175,7 +174,7 @@ def read_catalog(fname, uid_info):
 
     Returns
     -------
-    data with a subset of cols
+    data with a subset of rows and cols
     """
     import numpy as np
     import os
