@@ -18,19 +18,24 @@ def get_args():
     parser.add_argument(
         '--nrand',
         type=int,
-        default=200_000,
+        default=500_000,
         help='size of random subset to plot',
     )
     parser.add_argument(
         '--seed',
         type=int,
-        default=633,
+        default=3,
         help='seed for rng',
     )
     parser.add_argument(
         '--colormap',
         default='Spectral',
         help='colormap for plot',
+    )
+    parser.add_argument(
+        '--projection',
+        default='Albers',
+        help='either Albers or McBryde',
     )
 
     return parser.parse_args()
@@ -55,10 +60,31 @@ def get_cmap(colormap):
     return getattr(cm, colormap)
 
 
+def get_projection(args):
+
+    if args.projection == 'McBryde':
+        import matplotlib.pyplot as mplt
+        import skyproj
+        fig, ax = mplt.subplots()
+        sp = skyproj.DESSkyproj(ax=ax, lon_0=30)
+    elif args.projection == 'Albers':
+        import skymapper as skm
+
+        lon_0, lat_0, lat_1, lat_2 = 27.35, -37.04, -57.06, -11.34
+        proj = skm.Albers(lon_0, lat_0, lat_1, lat_2)
+
+        sp = skm.Map(proj)
+        sep = 15
+        sp.grid(sep=sep)
+    else:
+        raise ValueError(f'bad projection {args.projection}')
+
+    return sp
+
+
 def doplot(args, data):
     import matplotlib.pyplot as mplt
     import numpy as np
-    import skyproj
 
     cmap = get_cmap(args.colormap)
 
@@ -68,15 +94,19 @@ def doplot(args, data):
 
     npatch = np.unique(data['patch_num']).size
     colors = get_colors(rng=rng, npatch=npatch, cmap=cmap)
-    fig, ax = mplt.subplots()
 
-    sp = skyproj.DESSkyproj(ax=ax)
+    ra = data['ra'][rind]
+    dec = data['dec'][rind]
+
+    sp = get_projection(args)
     sp.scatter(
-        data['ra'][rind],
-        data['dec'][rind],
+        ra, dec,
         color=colors[data['patch_num'][rind]],
         s=0.1,
     )
+    if args.projection == 'Albers':
+        sp.focus(ra, dec)
+
     print('writing:', args.output)
     mplt.savefig(args.output, dpi=150)
 
