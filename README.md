@@ -87,4 +87,4 @@ patch_nums = patches['patch_num'][mpatches]
 ```
 Example patches
 ----------------
-![Patches](data/patches-altrem-npatch200-seed9999-Spectral-pseed633.png?raw=true "200 patches")
+![Patches](data/patches-altrem-npatch200-seed9999-Spectral-pseed3.png?raw=true "200 patches")
