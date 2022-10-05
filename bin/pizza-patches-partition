@@ -34,11 +34,12 @@ def get_args():
 def create_or_append_output(fname, output):
     import fitsio
 
+    ext = 'object_data'
     with fitsio.FITS(fname, 'rw') as fits:
-        if 'object_data' not in fits:
-            fits.write(output)
+        if ext not in fits:
+            fits.write(output, extname=ext)
         else:
-            fits['object_data'].append(output)
+            fits[ext].append(output)
 
 
 def write_outputs_to_patch_files(data, patches, sind):
