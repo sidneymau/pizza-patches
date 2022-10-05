@@ -9,20 +9,50 @@ Examples
 # a ra, dec and a unique pizza_id
 pizza-patches-combine-info \
     --info-files /path/to/2022_10_03_extract_slice_info/pz_data/*fits \
-    --output 2022_10_03_extract_slice_info_combined.fits.gz
+    --output slice-info.fits.gz
 
 # assign patches.  You can also seend --npatch and --seed, which
 # default to 150 and 998877 respectively
 pizza-patches-assign \
-    --info 2022_10_03_extract_slice_info_combined.fits.gz \
-    --output 2022_10_03_extract_slice_info_patches.fits.gz
+    --info slice-info.fits.gz \
+    --npatch 200 \  # same as the default number of patches
+    --seed 9999 \ # same as the default seed
+    --output patches-altrem-npatch200-seed9999.fits.gz
 
 # make a plot of the patches
 pizza-patches-plot \
-    --patches 2022_10_03_extract_slice_info_patches.fits.gz \
-    --output 2022_10_03_extract_slice_info_patches.png
+    --patches patches-altrem-npatch200-seed9999.fits.gz \
+    --output patches-altrem-npatch200-seed9999.png
+
+# partition metadetect outputs into files by patch
+find /path/to/metadetect/ -name "*.fits" | sort > flist.txt
+
+# split into chunks for parallel processing
+split-file --prefix "flist-split" -n 8 -f flist.txt
+
+# process each separately.  Processing split 3
+python -u $(which pizza-patches-partition) \
+        --flist flist-split3.txt \
+        --patches patches-altrem-npatch200-seed9999.fits.gz \
+        --outdir patches3/ \
+        --uid-info uids.yaml
+
+# More than one of the above splits can add objects
+# to the same patch.  merge each patch
+# for patch 135
+ls patches[0-9]/*fits > unmerged-patch-files.txt
+patchname=patch-0135
+tmpfile=/tmp/patch-${patchname}.txt
+grep ${patchname} unmerged-patch-files.txt > ${tmpfile}
+
+python -u $(which pizza-patches-merge-patch) \
+    --flist ${tmpfile} \
+    --outdir patches
 ```
 
+
+Using library functions.
+------------------------
 Find the `pizza_id` for a set of objects from the metadetect
 output files and get the patch number
 ```python
@@ -41,7 +71,7 @@ def match_ids(arr1, arr2, sort1=None):
     return sub1, sub2
 
 
-patches = fitsio.read('2022_10_03_extract_slice_info_patches.fits.gz')
+patches = fitsio.read('patches-altrem-npatch200-seed9999.fits.gz')
 mdet_fname = '/path/to/DES0008+0209_r5935p01_metadetect.fits'
 
 data = fitsio.read(mdet_fname)
@@ -57,4 +87,4 @@ patch_nums = patches['patch_num'][mpatches]
 ```
 Example patches
 ----------------
-![Patches](data/patches150.png?raw=true "150 patches")
+![Patches](data/patches-altrem-npatch200-seed9999-Spectral-pseed633.png?raw=true "200 patches")
