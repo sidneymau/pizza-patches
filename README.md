@@ -21,8 +21,9 @@ pizza-patches-assign \
 
 # make a plot of the patches
 pizza-patches-plot \
+    --seed 3 \
     --patches patches-altrem-npatch200-seed9999.fits.gz \
-    --output patches-altrem-npatch200-seed9999.png
+    --output patches-altrem-npatch200-seed9999-pseed3.png
 
 # partition metadetect outputs into files by patch
 find /path/to/metadetect/ -name "*.fits" | sort > flist.txt
@@ -31,7 +32,7 @@ find /path/to/metadetect/ -name "*.fits" | sort > flist.txt
 split-file --prefix "flist-split" -n 8 -f flist.txt
 
 # process each separately.  Processing split 3
-python -u $(which pizza-patches-partition) \
+pizza-patches-partition \
         --flist flist-split3.txt \
         --patches patches-altrem-npatch200-seed9999.fits.gz \
         --outdir patches3/ \
@@ -45,7 +46,7 @@ patchname=patch-0135
 tmpfile=/tmp/patch-${patchname}.txt
 grep ${patchname} unmerged-patch-files.txt > ${tmpfile}
 
-python -u $(which pizza-patches-merge-patch) \
+pizza-patches-merge-patch \
     --flist ${tmpfile} \
     --outdir patches
 ```
