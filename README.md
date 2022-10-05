@@ -39,16 +39,14 @@ pizza-patches-partition \
         --uid-info uids.yaml
 
 # More than one of the above splits can add objects
-# to the same patch.  merge each patch
-# for patch 135
+# to the same patch.  We need to merge the patches
+# Here is an example for patch 135
 ls patches[0-9]/*fits > unmerged-patch-files.txt
 patchname=patch-0135
 tmpfile=/tmp/patch-${patchname}.txt
 grep ${patchname} unmerged-patch-files.txt > ${tmpfile}
 
-pizza-patches-merge-patch \
-    --flist ${tmpfile} \
-    --outdir patches
+pizza-patches-merge-patch --flist ${tmpfile} --outdir patches
 ```
 
 
