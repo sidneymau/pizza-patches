@@ -24,8 +24,13 @@ def get_args():
     parser.add_argument(
         '--seed',
         type=int,
-        default=8811,
+        default=633,
         help='seed for rng',
+    )
+    parser.add_argument(
+        '--colormap',
+        default='Spectral',
+        help='colormap for plot',
     )
 
     return parser.parse_args()
@@ -37,17 +42,17 @@ def read_catalog(fname):
     return fitsio.read(fname)
 
 
-def get_colors(rng, npatch):
-    import random
-    import matplotlib.cm as cm
+def get_colors(rng, npatch, cmap):
     import numpy as np
 
-    random.seed(rng.randint(0, 2**20))
-
-    colors = list(cm.rainbow(np.linspace(0, 1, npatch)))
-    random.shuffle(colors)
-    colors = np.array(colors)
+    colors = cmap(np.linspace(0, 1, npatch))
+    rng.shuffle(colors)
     return colors
+
+
+def get_cmap(colormap):
+    import matplotlib.cm as cm
+    return getattr(cm, colormap)
 
 
 def doplot(args, data):
@@ -55,11 +60,14 @@ def doplot(args, data):
     import numpy as np
     import skyproj
 
+    cmap = get_cmap(args.colormap)
+
+    print('making plot')
     rng = np.random.RandomState(seed=args.seed)
     rind = rng.randint(0, data.size, size=args.nrand)
 
     npatch = np.unique(data['patch_num']).size
-    colors = get_colors(rng, npatch)
+    colors = get_colors(rng=rng, npatch=npatch, cmap=cmap)
     fig, ax = mplt.subplots()
 
     sp = skyproj.DESSkyproj(ax=ax)

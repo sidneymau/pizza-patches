@@ -1,7 +1,7 @@
 import numpy as np
 
-from ..patches import get_labels
-from ..util import make_output, get_pizza_ids
+from ..patches import get_labels, make_patches_output
+from ..util import get_pizza_ids
 
 NPATCH = 150
 
@@ -38,7 +38,7 @@ def test_make_output():
     slice_ids = np.arange(ra.size)
     pizza_ids = get_pizza_ids(tilenames=tilenames, slice_ids=slice_ids)
 
-    output = make_output(
+    output = make_patches_output(
         pizza_ids=pizza_ids,
         ra=ra, dec=dec,
         labels=labels,
