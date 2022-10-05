@@ -1,6 +1,9 @@
-def get_labels(ra, dec, npatch, seed):
+def get_labels(ra, dec, npatch, seed, alt=True):
     """
     get kmeans labels using the treecorr code
+
+    We throw out a patch in the turrent to try to make them be a big
+    larger, closer to size of the main area patches
 
     Parameters
     -----------
@@ -13,6 +16,8 @@ def get_labels(ra, dec, npatch, seed):
     seed: int
         Seed for random number generator, used to make
         patch center guesses
+    alt: bool, optional
+        If set to True, use alternate algorithm
 
     Returns
     -------
@@ -30,11 +35,28 @@ def get_labels(ra, dec, npatch, seed):
         dec_units='deg',
     )
     field = cat.getNField()
-    labelnums, centers = field.run_kmeans(
-        npatch,
-        rng=rng,
-        alt=True,
+
+    centers = field.kmeans_initialize_centers(
+        npatch + 1, init='tree', rng=rng,
     )
+    field.kmeans_refine_centers(centers, alt=alt)
+
+    # Remove the upper right center.
+    # z-y is roughly up/right direction.
+    upper_right = np.argmax(centers[:, 2] - centers[:, 1])
+    centers = centers[np.arange(npatch + 1) != upper_right]
+
+    # redo refinement with this adjustment, will need extra
+    # iterations
+    field.kmeans_refine_centers(centers, alt=alt, max_iter=2000)
+    labelnums = field.kmeans_assign_patches(centers)
+
+    # here is the more standard call, for reference
+    # labelnums, centers = field.run_kmeans(
+    #     npatch,
+    #     rng=rng,
+    #     alt=True,
+    # )
     return labelnums
 
 

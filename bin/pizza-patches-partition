@@ -106,7 +106,7 @@ def make_output(data):
 
 def get_output_dtype():
     return [
-        ('uid', 'i4'),
+        ('uid', 'i8'),
         ('patch_num', 'i2'),
 
         ('tilename', 'U12'),
