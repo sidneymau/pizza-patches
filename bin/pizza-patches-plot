@@ -61,23 +61,34 @@ def get_cmap(colormap):
 
 
 def get_projection(args):
+    import matplotlib.pyplot as mplt
+    import skyproj
+
+    fig, ax = mplt.subplots()
 
     if args.projection == 'McBryde':
-        import matplotlib.pyplot as mplt
-        import skyproj
-        fig, ax = mplt.subplots()
-        sp = skyproj.DESSkyproj(ax=ax, lon_0=30)
+        sp = skyproj.DESSkyproj(ax=ax)
     elif args.projection == 'Albers':
-        import skymapper as skm
-
-        lon_0, lat_0, lat_1, lat_2 = 27.35, -37.04, -57.06, -11.34
-        proj = skm.Albers(lon_0, lat_0, lat_1, lat_2)
-
-        sp = skm.Map(proj)
-        sep = 15
-        sp.grid(sep=sep)
+        sp = skyproj.DESAlbersSkyproj(ax=ax)
     else:
         raise ValueError(f'bad projection {args.projection}')
+
+    # if args.projection == 'McBryde':
+    #     import matplotlib.pyplot as mplt
+    #     import skyproj
+    #     fig, ax = mplt.subplots()
+    #     sp = skyproj.DESSkyproj(ax=ax, lon_0=30)
+    # elif args.projection == 'Albers':
+    #     import skymapper as skm
+    #
+    #     lon_0, lat_0, lat_1, lat_2 = 27.35, -37.04, -57.06, -11.34
+    #     proj = skm.Albers(lon_0, lat_0, lat_1, lat_2)
+    #
+    #     sp = skm.Map(proj)
+    #     sep = 15
+    #     sp.grid(sep=sep)
+    # else:
+    #     raise ValueError(f'bad projection {args.projection}')
 
     return sp
 
@@ -104,8 +115,8 @@ def doplot(args, data):
         color=colors[data['patch_num'][rind]],
         s=0.1,
     )
-    if args.projection == 'Albers':
-        sp.focus(ra, dec)
+    # if args.projection == 'Albers':
+    #     sp.focus(ra, dec)
 
     print('writing:', args.output)
     mplt.savefig(args.output, dpi=150)
