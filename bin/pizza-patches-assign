@@ -48,9 +48,9 @@ def write_output(fname, output, centers):
     print('writing:', fname)
     with fitsio.FITS(fname, 'rw', clobber=True) as fits:
         print('  writing patch_map')
-        fits.write(output, ext='patch_map')
+        fits.write(output, extname='patch_map')
         print('  writing centers')
-        fits.write(centers, ext='centers')
+        fits.write(centers, extname='centers')
 
 
 def main():
