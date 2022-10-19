@@ -21,6 +21,14 @@ def get_args():
         required=True,
     )
     parser.add_argument(
+        '--centers-output',
+        help=(
+            'file containing patch num and center x, y, z'
+        ),
+        required=True,
+    )
+
+    parser.add_argument(
         '--npatch',
         type=int,
         default=200,
@@ -42,15 +50,34 @@ def read_catalog(fname):
     return fitsio.read(fname)
 
 
-def write_output(fname, output, centers):
+def get_centers_output(centers):
+    import numpy as np
+    dtype = [
+        ('patch', 'i4'),
+        ('x', 'f8'),
+        ('y', 'f8'),
+        ('z', 'f8'),
+    ]
+
+    n = centers.shape[0]
+    st = np.zeros(n, dtype=dtype)
+    st['patch'] = np.arange(n)
+    st['x'] = centers[:, 0]
+    st['y'] = centers[:, 1]
+    st['z'] = centers[:, 2]
+    return st
+
+
+def write_output(args, output, centers):
     import fitsio
 
-    print('writing:', fname)
-    with fitsio.FITS(fname, 'rw', clobber=True) as fits:
-        print('  writing patch_map')
-        fits.write(output, extname='patch_map')
-        print('  writing centers')
-        fits.write(centers, extname='centers')
+    cenout = get_centers_output(centers)
+
+    print('writing:', args.output)
+    fitsio.write(args.output, output, clobber=True, extname='patch_map')
+
+    print('writing:', args.centers_output)
+    fitsio.write(args.centers_output, cenout, clobber=True, extname='centers')
 
 
 def main():
@@ -69,7 +96,7 @@ def main():
         labels=labels,
     )
     del info
-    write_output(args.output, output, centers)
+    write_output(args, output, centers)
 
 
 if __name__ == '__main__':
