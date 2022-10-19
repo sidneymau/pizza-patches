@@ -13,7 +13,11 @@ def get_args():
     )
     parser.add_argument(
         '--output',
-        help='pizza cutter info file',
+        help=(
+            'file containing patch num for each pizza slice, '
+            'as well as the centers info for each kmeans patch'
+            'in extension 2',
+        ),
         required=True,
     )
     parser.add_argument(
@@ -38,10 +42,15 @@ def read_catalog(fname):
     return fitsio.read(fname)
 
 
-def write_output(fname, output):
+def write_output(fname, output, centers):
     import fitsio
+
     print('writing:', fname)
-    fitsio.write(fname, output, clobber=True)
+    with fitsio.FITS(fname, 'rw', clobber=True) as fits:
+        print('  writing patch_map')
+        fits.write(output, ext='patch_map')
+        print('  writing centers')
+        fits.write(centers, ext='centers')
 
 
 def main():
@@ -50,7 +59,7 @@ def main():
     info = read_catalog(args.info)
 
     print('getting labels')
-    labels = get_labels(
+    labels, centers = get_labels(
         info['ra'], info['dec'], npatch=args.npatch, seed=args.seed,
     )
 
@@ -60,7 +69,7 @@ def main():
         labels=labels,
     )
     del info
-    write_output(args.output, output)
+    write_output(args.output, output, centers)
 
 
 if __name__ == '__main__':

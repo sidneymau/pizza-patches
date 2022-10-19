@@ -57,7 +57,7 @@ def get_labels(ra, dec, npatch, seed, alt=True):
     #     rng=rng,
     #     alt=True,
     # )
-    return labelnums
+    return labelnums, centers
 
 
 def make_patches_output(pizza_ids, ra, dec, labels):
