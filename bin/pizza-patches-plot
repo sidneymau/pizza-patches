@@ -67,28 +67,11 @@ def get_projection(args):
     fig, ax = mplt.subplots()
 
     if args.projection == 'McBryde':
-        sp = skyproj.DESSkyproj(ax=ax)
+        sp = skyproj.DESMcBrydeSkyproj(ax=ax)
     elif args.projection == 'Albers':
         sp = skyproj.DESAlbersSkyproj(ax=ax)
     else:
         raise ValueError(f'bad projection {args.projection}')
-
-    # if args.projection == 'McBryde':
-    #     import matplotlib.pyplot as mplt
-    #     import skyproj
-    #     fig, ax = mplt.subplots()
-    #     sp = skyproj.DESSkyproj(ax=ax, lon_0=30)
-    # elif args.projection == 'Albers':
-    #     import skymapper as skm
-    #
-    #     lon_0, lat_0, lat_1, lat_2 = 27.35, -37.04, -57.06, -11.34
-    #     proj = skm.Albers(lon_0, lat_0, lat_1, lat_2)
-    #
-    #     sp = skm.Map(proj)
-    #     sep = 15
-    #     sp.grid(sep=sep)
-    # else:
-    #     raise ValueError(f'bad projection {args.projection}')
 
     return sp
 
