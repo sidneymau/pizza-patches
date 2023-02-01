@@ -132,15 +132,15 @@ def get_output_dtype():
         ('psfrec_g_2', 'f8'),
         ('psfrec_T', 'f4'),
 
-        ('wmom_s2n', 'f4'),
-        ('wmom_g_1', 'f8'),
-        ('wmom_g_2', 'f8'),
-        ('wmom_g_cov_1_1', 'f4'),
-        ('wmom_g_cov_1_2', 'f4'),
-        ('wmom_g_cov_2_2', 'f4'),
-        ('wmom_T_err', 'f4'),
-        ('wmom_T_ratio', 'f4'),
-        ('wmom_psf_T', 'f4'),
+        ('gauss_s2n', 'f4'),
+        ('gauss_g_1', 'f8'),
+        ('gauss_g_2', 'f8'),
+        ('gauss_g_cov_1_1', 'f4'),
+        ('gauss_g_cov_1_2', 'f4'),
+        ('gauss_g_cov_2_2', 'f4'),
+        ('gauss_T_err', 'f4'),
+        ('gauss_T_ratio', 'f4'),
+        ('gauss_psf_T', 'f4'),
 
         ('pgauss_T_err', 'f4'),
         ('pgauss_T', 'f4'),
@@ -190,8 +190,8 @@ def read_catalog(fname, uid_info):
     # not all of these are in output
     w, = np.where(
         (orig_data['psfrec_flags'] == 0) &
-        (orig_data['wmom_flags'] == 0) &
-        (orig_data['wmom_s2n'] > 5) &
+        (orig_data['gauss_flags'] == 0) &
+        (orig_data['gauss_s2n'] > 5) &
         (orig_data['pgauss_T_flags'] == 0) &
         (orig_data['pgauss_s2n'] > 5) &
         (orig_data['pgauss_band_flux_flags_g'] == 0) &

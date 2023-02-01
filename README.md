@@ -28,6 +28,9 @@ pizza-patches-plot \
 # partition metadetect outputs into files by patch
 find /path/to/metadetect/ -name "*.fits" | sort > flist.txt
 
+# make the unique ids
+pizza-patches-make-uids --flist flist.txt --output uids.yaml
+
 # split into chunks for parallel processing
 split-file --prefix "flist-split" -n 8 -f flist.txt
 
