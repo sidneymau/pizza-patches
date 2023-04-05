@@ -102,7 +102,7 @@ def doplot(args, data):
     #     sp.focus(ra, dec)
 
     print('writing:', args.output)
-    mplt.savefig(args.output, dpi=150)
+    mplt.savefig(args.output, dpi=300)
 
 
 def main():

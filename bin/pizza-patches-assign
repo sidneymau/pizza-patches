@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from pizza_patches.patches import get_labels, make_patches_output
+from pizza_patches.patches import get_centers, get_labels, make_patches_output
 
 
 def get_args():
@@ -9,6 +9,11 @@ def get_args():
     parser.add_argument(
         '--info',
         help='pizza cutter info file',
+        required=True,
+    )
+    parser.add_argument(
+        '--mask',
+        help='mask to remove objects',
         required=True,
     )
     parser.add_argument(
@@ -46,8 +51,16 @@ def get_args():
 
 def read_catalog(fname):
     import fitsio
+
     print('reading:', fname)
     return fitsio.read(fname)
+
+
+def read_mask(fname):
+    import healsparse as hsp
+
+    print('reading:', fname)
+    return hsp.HealSparseMap.read(fname)
 
 
 def get_centers_output(centers):
@@ -84,18 +97,29 @@ def main():
     args = get_args()
 
     info = read_catalog(args.info)
+    mask = read_mask(args.mask)
 
-    print('getting labels')
-    labels, centers = get_labels(
-        info['ra'], info['dec'], npatch=args.npatch, seed=args.seed,
+    centers = get_centers(
+        ra=info['ra'],
+        dec=info['dec'],
+        mask=mask,
+        npatch=args.npatch,
+        seed=args.seed,
     )
+
+    labels = get_labels(
+        ra=info['ra'],
+        dec=info['dec'],
+        centers=centers,
+    )
+    assert labels.size == info.size
 
     output = make_patches_output(
         pizza_ids=info['pizza_id'],
         ra=info['ra'], dec=info['dec'],
         labels=labels,
     )
-    del info
+
     write_output(args, output, centers)
 
 

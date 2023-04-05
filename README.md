@@ -12,9 +12,10 @@ pizza-patches-combine-info \
     --output slice-info.fits.gz
 
 # assign patches.  You can also seend --npatch and --seed, which
-# default to 150 and 998877 respectively
+# default to 200 and 9999 respectively
 pizza-patches-assign \
     --info slice-info.fits.gz \
+    --mask y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v3.fits \
     --npatch 200 \  # same as the default number of patches
     --seed 9999 \ # same as the default seed
     --output patches-altrem-npatch200-seed9999.fits.gz

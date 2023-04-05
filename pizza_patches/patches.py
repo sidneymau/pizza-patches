@@ -1,8 +1,10 @@
-def get_labels(ra, dec, npatch, seed, alt=True):
+def get_centers(ra, dec, mask, npatch, seed, alt=True):
     """
-    get kmeans labels using the treecorr code
+    get kmeans centers using the treecorr code
 
-    We throw out a patch in the turrent to try to make them be a big
+    Only ra/dec ok for mask are used to define patches
+
+    We throw out a patch in the turret to try to make them be a big
     larger, closer to size of the main area patches
 
     Parameters
@@ -11,6 +13,8 @@ def get_labels(ra, dec, npatch, seed, alt=True):
         Array of ra to use for kmeans
     dec: array
         Array of dec to use for kmeans
+    mask: HealSparseMap
+        The healsparse map
     npatch: int
         Number of kmeans patches
     seed: int
@@ -21,25 +25,30 @@ def get_labels(ra, dec, npatch, seed, alt=True):
 
     Returns
     -------
-    labelnums: array of patch ids as integers
+    centers: (npatch, 3)
     """
     import treecorr
     import numpy as np
 
     rng = np.random.RandomState(seed)
 
-    cat = treecorr.Catalog(
-        ra=ra,
-        dec=dec,
+    print('getting mask values')
+    vals = mask.get_values_pos(ra, dec)
+    w, = np.where(vals == 1)
+
+    print('getting centers')
+    subcat = treecorr.Catalog(
+        ra=ra[w],
+        dec=dec[w],
         ra_units='deg',
         dec_units='deg',
     )
-    field = cat.getNField()
+    subfield = subcat.getNField()
 
-    centers = field.kmeans_initialize_centers(
+    centers = subfield.kmeans_initialize_centers(
         npatch + 1, init='tree', rng=rng,
     )
-    field.kmeans_refine_centers(centers, alt=alt)
+    subfield.kmeans_refine_centers(centers, alt=alt)
 
     # Remove the upper right center.
     # z-y is roughly up/right direction.
@@ -48,16 +57,71 @@ def get_labels(ra, dec, npatch, seed, alt=True):
 
     # redo refinement with this adjustment, will need extra
     # iterations
-    field.kmeans_refine_centers(centers, alt=alt, max_iter=2000)
-    labelnums = field.kmeans_assign_patches(centers)
+    subfield.kmeans_refine_centers(centers, alt=alt, max_iter=2000)
 
-    # here is the more standard call, for reference
-    # labelnums, centers = field.run_kmeans(
-    #     npatch,
-    #     rng=rng,
-    #     alt=True,
-    # )
-    return labelnums, centers
+    return centers
+
+
+def get_labels(ra, dec, centers):
+    """
+    get kmeans labels using the treecorr code
+
+    Only ra/dec ok for mask are used to define patches, but all ra dec
+    are given labels
+
+    We throw out a patch in the turrent to try to make them be a big
+    larger, closer to size of the main area patches
+
+    Parameters
+    -----------
+    ra: array
+        Array of ra to use for kmeans
+    dec: array
+        Array of dec to use for kmeans
+    centers: array
+        (npatch, 3) x y z
+
+    Returns
+    -------
+    labelnums: array of patch ids as integers
+    """
+    import treecorr
+    import numpy as np
+    from tqdm import trange
+
+    print('getting labels')
+
+    chunksize = 100000
+    nchunks = ra.size // chunksize
+    if ra.size % chunksize != 0:
+        nchunks += 1
+
+    tlist = []
+    for i in trange(nchunks):
+        start = i * chunksize
+        end = (i + 1) * chunksize
+
+        tra = ra[start:end]
+        tdec = dec[start:end]
+
+        tcat = treecorr.Catalog(
+            ra=tra,
+            dec=tdec,
+            ra_units='deg',
+            dec_units='deg',
+        )
+        tfield = tcat.getNField()
+
+        tlabelnums = tfield.kmeans_assign_patches(centers)
+        assert tlabelnums.size == tra.size
+
+        tlist.append(tlabelnums)
+
+        del tfield
+        del tcat
+
+    labelnums = np.hstack(tlist)
+    return labelnums
 
 
 def make_patches_output(pizza_ids, ra, dec, labels):

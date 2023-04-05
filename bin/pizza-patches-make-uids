@@ -31,6 +31,9 @@ def go(sorted_flist, output_file):
     for i, fname in enumerate(tqdm(sorted_flist)):
         with fitsio.FITS(fname) as fits:
             nrows = fits[1].get_nrows()
+            if nrows == 0:
+                raise ValueError(f'no data in {fname}')
+
             end = start + nrows
 
             basename = os.path.basename(fname)
