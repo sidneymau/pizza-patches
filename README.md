@@ -20,9 +20,10 @@ pizza-patches-assign \
     --seed 9999 \ # same as the default seed
     --output patches-altrem-npatch200-seed9999.fits.gz
 
-# make a plot of the patches
+# make a plot of the patches (optionally with mask)
 pizza-patches-plot \
     --seed 3 \
+    --mask y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v3.fits \
     --patches patches-altrem-npatch200-seed9999.fits.gz \
     --output patches-altrem-npatch200-seed9999-pseed3.png
 
