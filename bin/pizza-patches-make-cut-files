@@ -1,0 +1,290 @@
+#!/usr/bin/env python
+import fitsio
+import numpy as np
+import os
+import joblib
+from esutil.pbar import PBar
+from mattspy import BNLCondorParallel
+
+from pizza_patches.util import get_pizza_ids
+from pizza_patches.util import load_flist, load_yaml
+from des_y6utils.mdet import (
+    make_mdet_cuts, add_extinction_correction_columns
+)
+
+
+def get_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--flist',
+        help='file holding metadetect output files',
+        required=True,
+    )
+    parser.add_argument(
+        '--patches',
+        help='pizza cutter patches file',
+        required=True,
+    )
+    parser.add_argument(
+        '--uid-info',
+        help='file holding uid info',
+        required=True,
+    )
+    parser.add_argument(
+        '--outdir',
+        help='output dir, will be created',
+        required=True,
+    )
+    parser.add_argument(
+        "--file-index",
+        help="A single index of a file in the list to process.",
+        default=None,
+    )
+    parser.add_argument(
+        "--clobber",
+        help="Clobber existing files.",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--parallel",
+        help="Run in parallel at BNL.",
+        action="store_true",
+        default=False,
+    )
+
+    return parser.parse_args()
+
+
+def make_output(data):
+    dtype = get_output_dtype()
+    output = np.zeros(data.size, dtype=dtype)
+
+    for name in output.dtype.names:
+        if name in ('uid', 'patch_num'):
+            continue
+        output[name] = data[name]
+
+    output['patch_num'] = -9999
+    output['uid'] = -9999
+
+    return output
+
+
+def get_output_dtype():
+    return [
+        ('uid', 'i8'),
+        ('patch_num', 'i2'),
+
+        ('tilename', 'U12'),
+        ('slice_id', 'i2'),
+
+        ('mdet_step', 'U7'),
+
+        ('ra', 'f8'),
+        ('dec', 'f8'),
+        ('x', 'f4'),
+        ('y', 'f4'),
+
+        ('mfrac', 'f4'),
+        ('mfrac_img', 'f4'),
+
+        ('nepoch_g', 'i4'),
+        ('nepoch_r', 'i4'),
+        ('nepoch_i', 'i4'),
+        ('nepoch_z', 'i4'),
+
+        ('psfrec_g_1', 'f8'),
+        ('psfrec_g_2', 'f8'),
+        ('psfrec_T', 'f4'),
+
+        ('gauss_s2n', 'f4'),
+        ('gauss_g_1', 'f8'),
+        ('gauss_g_2', 'f8'),
+        ('gauss_g_cov_1_1', 'f4'),
+        ('gauss_g_cov_1_2', 'f4'),
+        ('gauss_g_cov_2_2', 'f4'),
+        ('gauss_T_err', 'f4'),
+        ('gauss_T_ratio', 'f4'),
+        ('gauss_psf_T', 'f4'),
+
+        ('pgauss_T_err', 'f4'),
+        ('pgauss_T', 'f4'),
+        ('pgauss_psf_T', 'f4'),
+        ('pgauss_band_flux_g', 'f4'),
+        ('pgauss_band_flux_r', 'f4'),
+        ('pgauss_band_flux_i', 'f4'),
+        ('pgauss_band_flux_z', 'f4'),
+        ('pgauss_band_flux_err_g', 'f4'),
+        ('pgauss_band_flux_err_r', 'f4'),
+        ('pgauss_band_flux_err_i', 'f4'),
+        ('pgauss_band_flux_err_z', 'f4'),
+    ]
+
+
+def read_catalog(*, fname, uid_info, cuts_version, patches):
+    """Read the catalog, make cuts, and add uid+patch_num fields.
+
+    Some data types what are not used for precise aggregates are down converted
+    to smaller precision.
+
+    The cuts version listed is applied.
+
+    Parameters
+    ----------
+    fname: str
+        Path to the metadetect output
+    uid_info: dict
+        Keyed by file path basename, holds keys uid_start and uid_end
+    cuts_version: str
+        The version of the cuts to use.
+    patches: array
+        The array mapping pizza slices to patch IDs.
+
+    Returns
+    -------
+    data with a subset of rows and cols
+    """
+    print('reading:', fname, flush=True)
+    orig_data = fitsio.read(fname)
+
+    # not all of these are in output
+    inds, = np.where(
+        (orig_data['psfrec_flags'] == 0) &
+        (orig_data['gauss_flags'] == 0) &
+        (orig_data['gauss_s2n'] > 5) &
+        (orig_data['pgauss_T_flags'] == 0) &
+        (orig_data['pgauss_s2n'] > 5) &
+        (orig_data['pgauss_band_flux_flags_g'] == 0) &
+        (orig_data['pgauss_band_flux_flags_r'] == 0) &
+        (orig_data['pgauss_band_flux_flags_i'] == 0) &
+        (orig_data['pgauss_band_flux_flags_z'] == 0) &
+        (orig_data['mask_flags'] == 0) &
+        (orig_data['shear_bands'] == '123')
+    )
+    orig_data = orig_data[inds]
+
+    subinds, = np.where(make_mdet_cuts(orig_data, cuts_version))
+    if len(subinds) == 0:
+        return np.zeros(0, dtype=get_output_dtype())
+
+    orig_data = orig_data[subinds]
+    inds = inds[subinds]
+
+    data = make_output(orig_data)
+    del orig_data
+
+    info = uid_info[os.path.basename(fname)]
+    data['uid'] = np.arange(info['uid_start'], info['uid_end'])[inds]
+
+    print('    adding mag deredenning', flush=True)
+    data = add_extinction_correction_columns(data)
+
+    print('    getting pizza ids', flush=True)
+    pizza_ids = get_pizza_ids(
+        data['tilename'], data['slice_id'],
+    )
+
+    print('    matching to get patch numbers', flush=True)
+    mpatches, mdata = match_ids(
+        arr1=patches['pizza_id'],
+        arr2=pizza_ids,
+    )
+    assert mdata.size == data.size
+    data['patch_num'] = patches['patch_num'][mpatches]
+
+    return data
+
+
+def match_ids(arr1, arr2, sort1=None):
+    if sort1 is None:
+        sort1 = arr1.argsort()
+
+    sub1 = np.searchsorted(arr1, arr2, sorter=sort1)
+    sub2, = np.where(arr1[sort1[sub1]] == arr2)
+    sub1 = sort1[sub1[sub2]]
+
+    return sub1, sub2
+
+
+def make_outdir(outdir):
+    os.makedirs(outdir, exist_ok=True)
+
+
+def _run_file(fname, uid_info, patches, clobber):
+    oname = os.path.join(args.outdir, os.path.basename(fname))
+
+    if not clobber and os.path.exists(oname):
+        print('already exists so skipping:', fname, flush=True)
+        return
+
+    if isinstance(uid_info, str):
+        uid_info = load_yaml(uid_info)
+
+    if isinstance(patches, str):
+        patches = fitsio.read(args.patches)
+
+    data = read_catalog(
+        fname=fname,
+        uid_info=uid_info,
+        cuts_version="6",
+        patches=patches,
+    )
+    if data.size == 0:
+        print('no objects passed basic cut for file', fname, flush=True)
+        return
+
+    print('    writing', flush=True)
+    fitsio.write(oname, data, clobber=True)
+
+
+def _run_files(fnames, uid_info, patches, clobber, parallel):
+    if not parallel:
+        if isinstance(uid_info, str):
+            uid_info = load_yaml(uid_info)
+
+        if isinstance(patches, str):
+            patches = fitsio.read(args.patches)
+
+        for ii, fname in enumerate(PBar(fnames, total=len(fnames))):
+            print(" ")
+            _run_file(fname, uid_info, patches, clobber)
+    else:
+        with BNLCondorParallel(verbose=100, mem=16, cpus=2) as exc:
+            jobs = []
+            for fname in fnames:
+                jobs.append(
+                    joblib.delayed(_run_file)(
+                        fname, uid_info, patches, clobber
+                    )
+                )
+
+            for res in PBar(exc(jobs), total=len(jobs), desc="cutting data"):
+                try:
+                    res.result()
+                except Exception as e:
+                    print("\nERROR: " + repr(e), flush=True)
+
+
+def main(args):
+
+    make_outdir(args.outdir)
+
+    flist = load_flist(args.flist)
+    file_index = args.file_index
+
+    if file_index is not None:
+        file_index = int(file_index)
+        fname = flist[file_index]
+        _run_file(fname, args.uid_info, args.patches, args.clobber)
+    else:
+        _run_files(
+            flist, args.uid_info, args.patches,
+            args.clobber, args.parallel,
+        )
+
+
+if __name__ == '__main__':
+    args = get_args()
+    main(args)

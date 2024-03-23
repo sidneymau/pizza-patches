@@ -1,0 +1,11 @@
+numpy
+treecorr
+fitsio
+tqdm
+esutil
+mattspy
+des-y6utils
+healsparse
+matplotlib
+skyproj
+jq
