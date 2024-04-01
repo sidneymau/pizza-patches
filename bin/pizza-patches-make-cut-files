@@ -120,6 +120,10 @@ def get_output_dtype():
         ('pgauss_band_flux_err_r', 'f4'),
         ('pgauss_band_flux_err_i', 'f4'),
         ('pgauss_band_flux_err_z', 'f4'),
+        ('pgauss_band_flux_g_nodered', 'f4'),
+        ('pgauss_band_flux_r_nodered', 'f4'),
+        ('pgauss_band_flux_i_nodered', 'f4'),
+        ('pgauss_band_flux_z_nodered', 'f4'),
     ]
 
 
@@ -150,6 +154,7 @@ def read_catalog(*, fname, uid_info, cuts_version, patches):
     orig_data = fitsio.read(fname)
 
     # not all of these are in output
+    print('    making initial cuts', flush=True)
     inds, = np.where(
         (orig_data['psfrec_flags'] == 0) &
         (orig_data['gauss_flags'] == 0) &
@@ -165,6 +170,10 @@ def read_catalog(*, fname, uid_info, cuts_version, patches):
     )
     orig_data = orig_data[inds]
 
+    print('    applying mag deredenning', flush=True)
+    orig_data = add_extinction_correction_columns(orig_data)
+
+    print('    making final cuts', flush=True)
     subinds, = np.where(make_mdet_cuts(orig_data, cuts_version))
     if len(subinds) == 0:
         return np.zeros(0, dtype=get_output_dtype())
@@ -172,14 +181,13 @@ def read_catalog(*, fname, uid_info, cuts_version, patches):
     orig_data = orig_data[subinds]
     inds = inds[subinds]
 
+    print('    cutting to final output', flush=True)
     data = make_output(orig_data)
     del orig_data
 
+    print('    adding uids', flush=True)
     info = uid_info[os.path.basename(fname)]
     data['uid'] = np.arange(info['uid_start'], info['uid_end'])[inds]
-
-    print('    adding mag deredenning', flush=True)
-    data = add_extinction_correction_columns(data)
 
     print('    getting pizza ids', flush=True)
     pizza_ids = get_pizza_ids(
@@ -231,9 +239,6 @@ def _run_file(fname, uid_info, patches, clobber):
         cuts_version="6",
         patches=patches,
     )
-    if data.size == 0:
-        print('no objects passed basic cut for file', fname, flush=True)
-        return
 
     print('    writing', flush=True)
     fitsio.write(oname, data, clobber=True)
