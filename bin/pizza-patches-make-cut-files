@@ -256,7 +256,7 @@ def _run_files(fnames, uid_info, patches, clobber, parallel):
             print(" ")
             _run_file(fname, uid_info, patches, clobber)
     else:
-        with BNLCondorParallel(verbose=100, mem=16, cpus=2) as exc:
+        with BNLCondorParallel(verbose=10, mem=16, cpus=2) as exc:
             jobs = []
             for fname in fnames:
                 jobs.append(
