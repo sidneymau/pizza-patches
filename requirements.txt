@@ -9,3 +9,4 @@ healsparse
 matplotlib
 skyproj
 jq
+h5py
