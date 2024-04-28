@@ -29,6 +29,36 @@ def get_args():
     return parser.parse_args()
 
 
+def _write_to_patch_num(d, patch_num, num_per_shear, fptrs, ofile_base_hdf5):
+    if patch_num == -1:
+        pmsk = d["mdet_flags"] == 0
+    else:
+        pmsk = d["patch_num"] == patch_num
+
+    if patch_num not in num_per_shear:
+        num_per_shear[patch_num] = {k: 0 for k in SHEARS}
+        ofile_hdf5 = _get_fname(ofile_base_hdf5, patch_num)
+        _make_h5_file(ofile_hdf5, d)
+        fptrs[patch_num] = h5py.File(ofile_hdf5, "a")
+
+    fp = fptrs[patch_num]
+
+    for mdet_step in SHEARS:
+        msk = (d["mdet_step"] == mdet_step) & pmsk
+        d_mdet = d[msk]
+        loc = num_per_shear[patch_num][mdet_step]
+        _num = d_mdet.shape[0]
+        if _num > 0:
+            for col in d.dtype.names:
+                if col == "mdet_step":
+                    continue
+                fp["mdet"][mdet_step][col][loc:loc + _num] = d_mdet[col].astype(fp["mdet"][mdet_step][col].dtype)
+
+            num_per_shear[patch_num][mdet_step] += _num
+
+    return num_per_shear, fptrs
+
+
 def _process_file(*, fname, num_per_shear, fptrs, ofile_base_hdf5):
     d = fitsio.read(fname, ext=1)
 
@@ -37,51 +67,10 @@ def _process_file(*, fname, num_per_shear, fptrs, ofile_base_hdf5):
 
     patch_nums = np.unique(d["patch_num"])
     for patch_num in patch_nums:
-        pmsk = d["patch_num"] == patch_num
+        num_per_shear, fptrs = _write_to_patch_num(d, patch_num, num_per_shear, fptrs, ofile_base_hdf5)
 
-        if patch_num not in num_per_shear:
-            num_per_shear[patch_num] = {k: 0 for k in SHEARS}
-            ofile_hdf5 = _get_fname(ofile_base_hdf5, patch_num)
-            _make_h5_file(ofile_hdf5, d)
-            fptrs[patch_num] = h5py.File(ofile_hdf5, "a")
-
-        fp = fptrs[patch_num]
-
-        for mdet_step in SHEARS:
-            msk = (d["mdet_step"] == mdet_step) & pmsk
-            d_mdet = d[msk]
-            loc = num_per_shear[patch_num][mdet_step]
-            _num = d_mdet.shape[0]
-            if _num > 0:
-                for col in d.dtype.names:
-                    if col == "mdet_step":
-                        continue
-                    fp["mdet"][mdet_step][col][loc:loc + _num] = d_mdet[col].astype(fp["mdet"][mdet_step][col].dtype)
-
-                num_per_shear[patch_num][mdet_step] += _num
-
-    msk = d["mdet_flags"] == 0
-    d = d[msk]
     patch_num = -1
-    if patch_num not in num_per_shear:
-        num_per_shear[patch_num] = {k: 0 for k in SHEARS}
-        ofile_hdf5 = _get_fname(ofile_base_hdf5, patch_num)
-        _make_h5_file(ofile_hdf5, d)
-        fptrs[patch_num] = h5py.File(ofile_hdf5, "a")
-
-    if d.shape[0] != 0:
-        for mdet_step in SHEARS:
-            msk = d["mdet_step"] == mdet_step
-            d_mdet = d[msk]
-            loc = num_per_shear[patch_num][mdet_step]
-            _num = d_mdet.shape[0]
-            if _num > 0:
-                for col in d.dtype.names:
-                    if col == "mdet_step":
-                        continue
-                    fp["mdet"][mdet_step][col][loc:loc + _num] = d_mdet[col].astype(fp["mdet"][mdet_step][col].dtype)
-
-                num_per_shear[patch_num][mdet_step] += _num
+    num_per_shear, fptrs = _write_to_patch_num(d, patch_num, num_per_shear, fptrs, ofile_base_hdf5)
 
     return num_per_shear, fptrs
 
@@ -127,7 +116,7 @@ def main(args):
     ))
     print(f"found {len(cut_files)} input files...", flush=True)
 
-    print(f"removing output file(s) {ofile_base_hdf5}_patch*.h5...", flush=True)
+    print(f"removing output file(s) {ofile_base_hdf5}_*.h5...", flush=True)
     for ofname in glob.glob(f"{ofile_base_hdf5}_patch*.h5"):
         os.system(f"rm -f {ofname}")
     os.system(f"rm -f {ofile_base_hdf5}_all.h5")
