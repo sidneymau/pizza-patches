@@ -259,6 +259,7 @@ def _run_file(
     print('    writing', flush=True)
     fitsio.write(oname, data, clobber=True)
     os.system(f"chmod go-rwx {oname}")
+    os.system(f"chmod u-w {oname}")
 
     return data.shape[0], np.sum(data["mdet_flags"] == 0)
 
