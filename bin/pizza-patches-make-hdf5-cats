@@ -164,6 +164,7 @@ def main(args):
                 sgrp = fp["mdet"][shear]
                 for dset in sgrp.values():
                     dset.resize(nums[shear], axis=0)
+        os.system(f"chmod u-w {ofile_hdf5}")
 
 
 if __name__ == '__main__':
