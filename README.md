@@ -19,13 +19,6 @@ pizza-patches-assign \
     --seed 8888 \
     --output patches-altrem-npatch200-seed8888.fits.gz
 
-# make a plot of the patches (optionally with mask)
-pizza-patches-plot \
-    --seed 3 \
-    --mask y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v3.fits \
-    --patches patches-altrem-npatch200-seed8888.fits.gz \
-    --output patches-altrem-npatch200-seed8888-pseed3.png
-
 ls /gpfs02/astro/workarea/beckermr/des-y6-analysis/2023_02_25_run_mdet_nocoadd/mdet_data/*.fits > mdet_flist.txt
 pizza-patches-make-uids --flist=mdet_flist.txt --output=mdet_uids.yaml --n-jobs=-1
 
@@ -49,6 +42,9 @@ chmod go-rwx metadetect_cutsv6_patch*.h5
 chmod u-w metadetect_cutsv6_all.h5
 chmod u-w metadetect_cutsv6_patch*.h5
 ```
+
+Much of the code and scripts, plus plots etc. can be found in Matt's [Y6 analysis repo](https://github.com/beckermr/des-y6-analysis/tree/main/2023_12_21_v6cuts_hdf5cat). See the `inspect_catalogs.ipynb` notebook for validation plots
+on the final HDF5 files.
 
 ## Using library functions
 
