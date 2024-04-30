@@ -104,6 +104,7 @@ def _make_h5_file(ofile_hdf5, d):
                     dtype=dt,
                     shape=(160_000_000,),
                     maxshape=(None,),
+                    chunks=(5_000_000,),
                 )
     os.system(f"chmod go-rwx {ofile_hdf5}")
 
