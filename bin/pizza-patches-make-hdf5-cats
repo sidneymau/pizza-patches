@@ -38,7 +38,11 @@ def _write_to_patch_num(d, patch_num, num_per_shear, fptrs, ofile_base_hdf5):
     if patch_num not in num_per_shear:
         num_per_shear[patch_num] = {k: 0 for k in SHEARS}
         ofile_hdf5 = _get_fname(ofile_base_hdf5, patch_num)
-        _make_h5_file(ofile_hdf5, d)
+        if patch_num == -1:
+            chunksize = 5_000_000
+        else:
+            chunksize = 1_000_000
+        _make_h5_file(ofile_hdf5, d, chunksize)
         fptrs[patch_num] = h5py.File(ofile_hdf5, "a")
 
     fp = fptrs[patch_num]
@@ -82,7 +86,7 @@ def _get_fname(ofile_base_hdf5, patch_num):
         return f"{ofile_base_hdf5}_patch{patch_num:03d}.h5"
 
 
-def _make_h5_file(ofile_hdf5, d):
+def _make_h5_file(ofile_hdf5, d, chunksize):
     print(f"\ncreating output file {ofile_hdf5}...", flush=True)
     with h5py.File(ofile_hdf5, "w") as fp:
         mdet_grp = fp.create_group("mdet")
@@ -104,7 +108,8 @@ def _make_h5_file(ofile_hdf5, d):
                     dtype=dt,
                     shape=(160_000_000,),
                     maxshape=(None,),
-                    chunks=(5_000_000,),
+                    chunks=(chunksize,),
+                    compression="lzf",
                 )
     os.system(f"chmod go-rwx {ofile_hdf5}")
 
