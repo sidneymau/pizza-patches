@@ -1,0 +1,378 @@
+#!/usr/bin/env python
+import fitsio
+import numpy as np
+import os
+import joblib
+from esutil.pbar import PBar
+from mattspy import BNLCondorParallel
+
+from pizza_patches.util import get_pizza_ids
+from pizza_patches.util import load_flist, load_yaml
+from des_y6utils.mdet import (
+    make_mdet_cuts, add_extinction_correction_columns
+)
+
+
+def get_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--flist',
+        help='file holding metadetect output files',
+        required=True,
+    )
+    parser.add_argument(
+        '--patches',
+        help='pizza cutter patches file',
+        required=True,
+    )
+    parser.add_argument(
+        '--uid-info',
+        help='file holding uid info',
+        required=True,
+    )
+    parser.add_argument(
+        '--outdir',
+        help='output dir, will be created',
+        required=True,
+    )
+    parser.add_argument(
+        '--keep-coarse-cuts',
+        help='keep all objects that pass coarse cuts',
+        action='store_true',
+    )
+    parser.add_argument(
+        "--file-index",
+        help="A single index of a file in the list to process.",
+        default=None,
+    )
+    parser.add_argument(
+        "--clobber",
+        help="Clobber existing files.",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--parallel",
+        help="Run in parallel at BNL.",
+        action="store_true",
+        default=False,
+    )
+
+    return parser.parse_args()
+
+
+def make_output(data, mdet_flags_keep=None):
+    dtype = get_output_dtype()
+    output = np.zeros(data.size, dtype=dtype)
+
+    for name in output.dtype.names:
+        if name in ('uid', 'patch_num', 'mdet_flags'):
+            continue
+        output[name] = data[name]
+
+    output['patch_num'] = -9999
+    output['uid'] = -9999
+
+    if mdet_flags_keep is not None:
+        output["mdet_flags"][~mdet_flags_keep] = 1
+
+    return output
+
+
+def get_output_dtype():
+    return [
+        ('uid', 'i8'),
+        ('patch_num', 'i2'),
+
+        ('tilename', 'U12'),
+        ('slice_id', 'i2'),
+
+        ('mdet_step', 'U7'),
+        ('mdet_flags', 'i2'),
+
+        ('ra', 'f8'),
+        ('dec', 'f8'),
+        ('x', 'f4'),
+        ('y', 'f4'),
+
+        ('mfrac', 'f4'),
+        ('mfrac_img', 'f4'),
+
+        ('nepoch_g', 'i4'),
+        ('nepoch_r', 'i4'),
+        ('nepoch_i', 'i4'),
+        ('nepoch_z', 'i4'),
+
+        ('psfrec_g_1', 'f8'),
+        ('psfrec_g_2', 'f8'),
+        ('psfrec_T', 'f4'),
+
+        ('gauss_s2n', 'f4'),
+        ('gauss_g_1', 'f8'),
+        ('gauss_g_2', 'f8'),
+        ('gauss_g_cov_1_1', 'f4'),
+        ('gauss_g_cov_1_2', 'f4'),
+        ('gauss_g_cov_2_2', 'f4'),
+        ('gauss_T_err', 'f4'),
+        ('gauss_T_ratio', 'f4'),
+        ('gauss_psf_T', 'f4'),
+
+        ('pgauss_T_err', 'f4'),
+        ('pgauss_T', 'f4'),
+        ('pgauss_psf_T', 'f4'),
+        ('pgauss_band_flux_g', 'f4'),
+        ('pgauss_band_flux_r', 'f4'),
+        ('pgauss_band_flux_i', 'f4'),
+        ('pgauss_band_flux_z', 'f4'),
+        ('pgauss_band_flux_err_g', 'f4'),
+        ('pgauss_band_flux_err_r', 'f4'),
+        ('pgauss_band_flux_err_i', 'f4'),
+        ('pgauss_band_flux_err_z', 'f4'),
+        ('pgauss_band_flux_g_nodered', 'f4'),
+        ('pgauss_band_flux_r_nodered', 'f4'),
+        ('pgauss_band_flux_i_nodered', 'f4'),
+        ('pgauss_band_flux_z_nodered', 'f4'),
+    ]
+
+
+def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts):
+    """Read the catalog, make cuts, and add uid+patch_num fields.
+
+    Some data types what are not used for precise aggregates are down converted
+    to smaller precision.
+
+    The cuts version listed is applied.
+
+    Parameters
+    ----------
+    fname: str
+        Path to the metadetect output
+    uid_info: dict
+        Keyed by file path basename, holds keys uid_start and uid_end
+    cuts_version: str
+        The version of the cuts to use.
+    patches: array
+        The array mapping pizza slices to patch IDs.
+    keep_coarse_cuts : bool
+        If True, return the data after the coarse cuts and set mdet_flags to the fine cuts.
+
+    Returns
+    -------
+    cut_data : array-like
+        data with a subset of rows and cols
+    """
+    print('reading:', fname, flush=True)
+    orig_data = fitsio.read(fname)
+
+    # not all of these are in output
+    print('    making initial cuts', flush=True)
+    inds, = np.where(
+        (orig_data['psfrec_flags'] == 0) &
+        (orig_data['gauss_flags'] == 0) &
+        (orig_data['gauss_s2n'] > 5) &
+        (orig_data['pgauss_T_flags'] == 0) &
+        (orig_data['pgauss_s2n'] > 5) &
+        (orig_data['pgauss_band_flux_flags_g'] == 0) &
+        (orig_data['pgauss_band_flux_flags_r'] == 0) &
+        (orig_data['pgauss_band_flux_flags_i'] == 0) &
+        (orig_data['pgauss_band_flux_flags_z'] == 0) &
+        (orig_data['mask_flags'] == 0) &
+        (orig_data['shear_bands'] == '123')
+    )
+    orig_data = orig_data[inds]
+
+    print('    applying mag deredenning', flush=True)
+    orig_data = add_extinction_correction_columns(orig_data)
+
+    print('    making final cuts', flush=True)
+    msk_final_cuts = make_mdet_cuts(orig_data, cuts_version)
+
+    print('    making output data structure', flush=True)
+    data = make_output(orig_data, mdet_flags_keep=msk_final_cuts)
+    del orig_data
+
+    print('    adding uids', flush=True)
+    info = uid_info[os.path.basename(fname)]
+    data['uid'] = np.arange(info['uid_start'], info['uid_end'])[inds]
+
+    print('    getting pizza ids', flush=True)
+    pizza_ids = get_pizza_ids(
+        data['tilename'], data['slice_id'],
+    )
+
+    print('    matching to get patch numbers', flush=True)
+    mpatches, mdata = match_ids(
+        arr1=patches['pizza_id'],
+        arr2=pizza_ids,
+    )
+    assert mdata.size == data.size
+    data['patch_num'] = patches['patch_num'][mpatches]
+
+
+    if keep_coarse_cuts:
+        return data
+    else:
+        return data[msk_final_cuts]
+
+
+def match_ids(arr1, arr2, sort1=None):
+    if sort1 is None:
+        sort1 = arr1.argsort()
+
+    sub1 = np.searchsorted(arr1, arr2, sorter=sort1)
+    sub2, = np.where(arr1[sort1[sub1]] == arr2)
+    sub1 = sort1[sub1[sub2]]
+
+    return sub1, sub2
+
+
+def _run_file(
+    *,
+    fname,
+    uid_info,
+    patches,
+    clobber,
+    outdir,
+    keep_coarse_cuts,
+):
+    oname = os.path.join(outdir, os.path.basename(fname))
+
+    if not clobber and os.path.exists(oname):
+        print('already exists so skipping:', fname, flush=True)
+        return
+
+    if isinstance(uid_info, str):
+        uid_info = load_yaml(uid_info)
+
+    if isinstance(patches, str):
+        patches = fitsio.read(args.patches)
+
+    data = read_catalog(
+        fname=fname,
+        uid_info=uid_info,
+        cuts_version="6",
+        patches=patches,
+        keep_coarse_cuts=keep_coarse_cuts,
+    )
+
+    print('    writing', flush=True)
+    fitsio.write(oname, data, clobber=True)
+    os.system(f"chmod go-rwx {oname}")
+    os.system(f"chmod u-w {oname}")
+
+    return data.shape[0], np.sum(data["mdet_flags"] == 0)
+
+
+def _print_number(ntot, nfinal, nfiles, nfiles_so_far):
+    ntot_est = ntot * nfiles / nfiles_so_far
+    nfinal_est = nfinal * nfiles / nfiles_so_far
+    print(
+        f"estimated # of objects total: "
+        f"{ntot_est/1e6:.2f} million (w/ cuts "
+        f"{nfinal_est/1e6:.2f} million)",
+        flush=True,
+    )
+
+
+def _run_files(
+    *,
+    fnames,
+    uid_info,
+    patches,
+    clobber,
+    parallel,
+    outdir,
+    keep_coarse_cuts,
+):
+    if not parallel:
+        if isinstance(uid_info, str):
+            uid_info = load_yaml(uid_info)
+
+        if isinstance(patches, str):
+            patches = fitsio.read(patches)
+
+        ntot = 0
+        nfinal = 0
+        for ii, fname in enumerate(PBar(fnames, total=len(fnames))):
+            oname = os.path.join(outdir, os.path.basename(fname))
+            if not clobber and os.path.exists(oname):
+                continue
+
+            _ntot, _nfinal = _run_file(
+                fname=fname,
+                uid_info=uid_info,
+                patches=patches,
+                clobber=clobber,
+                outdir=outdir,
+                keep_coarse_cuts=keep_coarse_cuts,
+            )
+            ntot += _ntot
+            nfinal += _nfinal
+            _print_number(ntot, nfinal, len(fnames), ii+1)
+    else:
+        with BNLCondorParallel(verbose=10, mem=16, cpus=2) as exc:
+            jobs = []
+            for fname in fnames:
+                oname = os.path.join(outdir, os.path.basename(fname))
+                if not clobber and os.path.exists(oname):
+                    continue
+
+                jobs.append(
+                    joblib.delayed(_run_file)(
+                        fname=fname,
+                        uid_info=uid_info,
+                        patches=patches,
+                        clobber=clobber,
+                        outdir=outdir,
+                        keep_coarse_cuts=keep_coarse_cuts,
+                    )
+                )
+
+            ntot = 0
+            nfinal = 0
+            nfiles_so_far = 0
+            for res in PBar(exc(jobs), total=len(jobs), desc="cutting data"):
+                try:
+                    _ntot, _nfinal = res.result()
+                    ntot += _ntot
+                    nfinal += _nfinal
+                    nfiles_so_far += 1
+                    _print_number(ntot, nfinal, len(fnames), nfiles_so_far)
+                except Exception as e:
+                    print("\nERROR: " + repr(e), flush=True)
+
+
+def main(args):
+
+    os.makedirs(args.outdir, exist_ok=True)
+
+    flist = load_flist(args.flist)
+    file_index = args.file_index
+
+    if file_index is not None:
+        file_index = int(file_index)
+        fname = flist[file_index]
+        _run_file(
+            fname=fname,
+            uid_info=args.uid_info,
+            patches=args.patches,
+            clobber=args.clobber,
+            outdir=args.outdir,
+            keep_coarse_cuts=args.keep_coarse_cuts,
+        )
+    else:
+        _run_files(
+            fnames=flist,
+            uid_info=args.uid_info,
+            patches=args.patches,
+            clobber=args.clobber,
+            outdir=args.outdir,
+            keep_coarse_cuts=args.keep_coarse_cuts,
+            parallel=args.parallel,
+        )
+
+
+if __name__ == '__main__':
+    args = get_args()
+    main(args)

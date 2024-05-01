@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 from pizza_patches.util import load_flist
 
 
@@ -16,35 +15,51 @@ def get_args():
         help='uid file',
         required=True,
     )
+    parser.add_argument(
+        '--n-jobs',
+        help=(
+            "# of parallel jobs to use (default is 1, "
+            "pass -1 to use all cores)"
+        ),
+        default="1",
+    )
     return parser.parse_args()
 
 
-def go(sorted_flist, output_file):
-    import yaml
+def _get_nrows(fname):
     import fitsio
+    with fitsio.FITS(fname) as fits:
+        nrows = fits[1].get_nrows()
+        if nrows == 0:
+            raise ValueError(f'no data in {fname}')
+        return nrows
+
+
+def go(sorted_flist, output_file, n_jobs=-1):
+    import yaml
     import os
-    from tqdm import tqdm
+
+    import joblib
+
+    jobs = [joblib.delayed(_get_nrows)(fname) for fname in sorted_flist]
+    with joblib.Parallel(n_jobs=n_jobs, verbose=1) as par:
+        all_nrows = par(jobs)
 
     uid_info = {}
 
     start = 0
-    for i, fname in enumerate(tqdm(sorted_flist)):
-        with fitsio.FITS(fname) as fits:
-            nrows = fits[1].get_nrows()
-            if nrows == 0:
-                raise ValueError(f'no data in {fname}')
+    for nrows, fname in zip(all_nrows, sorted_flist):
+        end = start + nrows
 
-            end = start + nrows
+        basename = os.path.basename(fname)
+        assert basename not in uid_info
 
-            basename = os.path.basename(fname)
-            assert basename not in uid_info
+        uid_info[basename] = {
+            'uid_start': start,
+            'uid_end': end,
+        }
 
-            uid_info[basename] = {
-                'uid_start': start,
-                'uid_end': end,
-            }
-
-            start = end
+        start = end
 
     print('writing:', output_file)
     with open(output_file, 'w') as fobj:
@@ -57,7 +72,7 @@ def main():
     flist = load_flist(args.flist)
     flist.sort()
 
-    go(sorted_flist=flist, output_file=args.output)
+    go(sorted_flist=flist, output_file=args.output, n_jobs=int(args.n_jobs))
 
 
 if __name__ == '__main__':
