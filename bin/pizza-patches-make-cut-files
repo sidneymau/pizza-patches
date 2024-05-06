@@ -161,6 +161,8 @@ def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts, ru
         The array mapping pizza slices to patch IDs.
     keep_coarse_cuts : bool
         If True, return the data after the coarse cuts and set mdet_flags to the fine cuts.
+    run_on_sim : bool
+        If True, zero out the mdet flags bit at 16 (MASK_TILEDUPE) and set patch_num to -1
 
     Returns
     -------
