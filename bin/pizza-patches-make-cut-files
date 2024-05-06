@@ -174,34 +174,20 @@ def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts, ru
     print('    making initial cuts', flush=True)
     if run_on_sim:
         orig_data["mask_flags"] = orig_data["mask_flags"] & (~16)
-        inds, = np.where(
-            (orig_data['psfrec_flags'] == 0) &
-            (orig_data['gauss_flags'] == 0) &
-            (orig_data['gauss_s2n'] > 5) &
-            (orig_data['pgauss_T_flags'] == 0) &
-            (orig_data['pgauss_s2n'] > 5) &
-            (orig_data['pgauss_band_flux_flags_g'] == 0) &
-            (orig_data['pgauss_band_flux_flags_r'] == 0) &
-            (orig_data['pgauss_band_flux_flags_i'] == 0) &
-            (orig_data['pgauss_band_flux_flags_z'] == 0) &
-            (orig_data['shear_bands'] == '123')
-        )
-        orig_data = orig_data[inds]
-    else:
-        inds, = np.where(
-            (orig_data['psfrec_flags'] == 0) &
-            (orig_data['gauss_flags'] == 0) &
-            (orig_data['gauss_s2n'] > 5) &
-            (orig_data['pgauss_T_flags'] == 0) &
-            (orig_data['pgauss_s2n'] > 5) &
-            (orig_data['pgauss_band_flux_flags_g'] == 0) &
-            (orig_data['pgauss_band_flux_flags_r'] == 0) &
-            (orig_data['pgauss_band_flux_flags_i'] == 0) &
-            (orig_data['pgauss_band_flux_flags_z'] == 0) &
-            (orig_data['mask_flags'] == 0) &
-            (orig_data['shear_bands'] == '123')
-        )
-        orig_data = orig_data[inds]
+    inds, = np.where(
+        (orig_data['psfrec_flags'] == 0) &
+        (orig_data['gauss_flags'] == 0) &
+        (orig_data['gauss_s2n'] > 5) &
+        (orig_data['pgauss_T_flags'] == 0) &
+        (orig_data['pgauss_s2n'] > 5) &
+        (orig_data['pgauss_band_flux_flags_g'] == 0) &
+        (orig_data['pgauss_band_flux_flags_r'] == 0) &
+        (orig_data['pgauss_band_flux_flags_i'] == 0) &
+        (orig_data['pgauss_band_flux_flags_z'] == 0) &
+        (orig_data['mask_flags'] == 0) &
+        (orig_data['shear_bands'] == '123')
+    )
+    orig_data = orig_data[inds]
 
     print('    applying mag deredenning', flush=True)
     orig_data = add_extinction_correction_columns(orig_data)
