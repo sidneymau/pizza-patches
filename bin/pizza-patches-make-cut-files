@@ -22,15 +22,13 @@ def get_args():
         required=True,
     )
     parser.add_argument(
-        '--patches',
-        help='pizza cutter patches file',
-        required=True,
-    )
-    parser.add_argument(
         '--uid-info',
         help='file holding uid info',
         required=True,
     )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--patches', help='pizza cutter patches file')
+    group.add_argument('--run-on-sim', action='store_true', help='run on simulated tiles')
     parser.add_argument(
         '--outdir',
         help='output dir, will be created',
@@ -136,7 +134,7 @@ def get_output_dtype():
     ]
 
 
-def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts):
+def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts, run_on_sim):
     """Read the catalog, make cuts, and add uid+patch_num fields.
 
     Some data types what are not used for precise aggregates are down converted
@@ -156,6 +154,8 @@ def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts):
         The array mapping pizza slices to patch IDs.
     keep_coarse_cuts : bool
         If True, return the data after the coarse cuts and set mdet_flags to the fine cuts.
+    run_on_sim : bool
+        If True, zero out the mdet flags bit at 16 (MASK_TILEDUPE) and set patch_num to -1
 
     Returns
     -------
@@ -167,6 +167,8 @@ def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts):
 
     # not all of these are in output
     print('    making initial cuts', flush=True)
+    if run_on_sim:
+        orig_data["mask_flags"] = orig_data["mask_flags"] & (~16)
     inds, = np.where(
         (orig_data['psfrec_flags'] == 0) &
         (orig_data['gauss_flags'] == 0) &
@@ -202,12 +204,15 @@ def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts):
     )
 
     print('    matching to get patch numbers', flush=True)
-    mpatches, mdata = match_ids(
-        arr1=patches['pizza_id'],
-        arr2=pizza_ids,
-    )
-    assert mdata.size == data.size
-    data['patch_num'] = patches['patch_num'][mpatches]
+    if run_on_sim:
+        data['patch_num'] = -1
+    else:
+        mpatches, mdata = match_ids(
+            arr1=patches['pizza_id'],
+            arr2=pizza_ids,
+        )
+        assert mdata.size == data.size
+        data['patch_num'] = patches['patch_num'][mpatches]
 
 
     if keep_coarse_cuts:
@@ -235,6 +240,7 @@ def _run_file(
     clobber,
     outdir,
     keep_coarse_cuts,
+    run_on_sim,
 ):
     oname = os.path.join(outdir, os.path.basename(fname))
 
@@ -254,6 +260,7 @@ def _run_file(
         cuts_version="6",
         patches=patches,
         keep_coarse_cuts=keep_coarse_cuts,
+        run_on_sim=run_on_sim,
     )
 
     print('    writing', flush=True)
@@ -284,6 +291,7 @@ def _run_files(
     parallel,
     outdir,
     keep_coarse_cuts,
+    run_on_sim,
 ):
     if not parallel:
         if isinstance(uid_info, str):
@@ -306,6 +314,7 @@ def _run_files(
                 clobber=clobber,
                 outdir=outdir,
                 keep_coarse_cuts=keep_coarse_cuts,
+                run_on_sim=run_on_sim,
             )
             ntot += _ntot
             nfinal += _nfinal
@@ -326,6 +335,7 @@ def _run_files(
                         clobber=clobber,
                         outdir=outdir,
                         keep_coarse_cuts=keep_coarse_cuts,
+                        run_on_sim=run_on_sim,
                     )
                 )
 
@@ -360,6 +370,7 @@ def main(args):
             clobber=args.clobber,
             outdir=args.outdir,
             keep_coarse_cuts=args.keep_coarse_cuts,
+            run_on_sim=args.run_on_sim,
         )
     else:
         _run_files(
@@ -369,6 +380,7 @@ def main(args):
             clobber=args.clobber,
             outdir=args.outdir,
             keep_coarse_cuts=args.keep_coarse_cuts,
+            run_on_sim=args.run_on_sim,
             parallel=args.parallel,
         )
 
