@@ -25,6 +25,11 @@ def get_args():
         help='the input FITS file directory',
         required=True,
     )
+    parser.add_argument(
+        '--run-on-sim',
+        action='store_true',
+        help='run on simulated tiles',
+    )
 
     return parser.parse_args()
 
@@ -63,15 +68,16 @@ def _write_to_patch_num(d, patch_num, num_per_shear, fptrs, ofile_base_hdf5):
     return num_per_shear, fptrs
 
 
-def _process_file(*, fname, num_per_shear, fptrs, ofile_base_hdf5):
+def _process_file(*, fname, num_per_shear, fptrs, ofile_base_hdf5, run_on_sim):
     d = fitsio.read(fname, ext=1)
 
     if d.shape[0] == 0:
         return num_per_shear, fptrs
 
-    patch_nums = np.unique(d["patch_num"])
-    for patch_num in patch_nums:
-        num_per_shear, fptrs = _write_to_patch_num(d, patch_num, num_per_shear, fptrs, ofile_base_hdf5)
+    if not run_on_sim:
+        patch_nums = np.unique(d["patch_num"])
+        for patch_num in patch_nums:
+            num_per_shear, fptrs = _write_to_patch_num(d, patch_num, num_per_shear, fptrs, ofile_base_hdf5)
 
     patch_num = -1
     num_per_shear, fptrs = _write_to_patch_num(d, patch_num, num_per_shear, fptrs, ofile_base_hdf5)
@@ -140,6 +146,7 @@ def main(args):
                 num_per_shear=num_per_shear,
                 fptrs=fptrs,
                 ofile_base_hdf5=ofile_base_hdf5,
+                run_on_sim=args.run_on_sim
             )
             if i % 100 == 0:
                 num = num_per_shear[-1]["noshear"]
