@@ -22,17 +22,24 @@ def get_args():
         required=True,
     )
     parser.add_argument(
+        '--patches',
+        help='pizza cutter patches file',
+        required=True,
+    )
+    parser.add_argument(
         '--uid-info',
         help='file holding uid info',
         required=True,
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--patches', help='pizza cutter patches file')
-    group.add_argument('--run-on-sim', action='store_true', help='run on simulated tiles')
     parser.add_argument(
         '--outdir',
         help='output dir, will be created',
         required=True,
+    )
+    parser.add_argument(
+        '--run-on-sim',
+        help='run on simulated tiles',
+        action='store_true',
     )
     parser.add_argument(
         '--keep-coarse-cuts',
@@ -204,16 +211,14 @@ def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts, ru
     )
 
     print('    matching to get patch numbers', flush=True)
-    if run_on_sim:
-        data['patch_num'] = -1
-    else:
-        mpatches, mdata = match_ids(
-            arr1=patches['pizza_id'],
-            arr2=pizza_ids,
-        )
-        assert mdata.size == data.size
-        data['patch_num'] = patches['patch_num'][mpatches]
-
+    # if run_on_sim:
+    #     data['patch_num'] = -1
+    mpatches, mdata = match_ids(
+        arr1=patches['pizza_id'],
+        arr2=pizza_ids,
+    )
+    assert mdata.size == data.size
+    data['patch_num'] = patches['patch_num'][mpatches]
 
     if keep_coarse_cuts:
         return data
