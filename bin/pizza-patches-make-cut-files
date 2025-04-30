@@ -67,8 +67,8 @@ def get_args():
     return parser.parse_args()
 
 
-def make_output(data, mdet_flags_keep=None):
-    dtype = get_output_dtype()
+def make_output(data, mdet_flags_keep=None, run_on_sim=False):
+    dtype = get_output_dtype(run_on_sim=run_on_sim)
     output = np.zeros(data.size, dtype=dtype)
 
     for name in output.dtype.names:
@@ -85,8 +85,8 @@ def make_output(data, mdet_flags_keep=None):
     return output
 
 
-def get_output_dtype():
-    return [
+def get_output_dtype(run_on_sim=False):
+    _dtype = [
         ('uid', 'i8'),
         ('patch_num', 'i2'),
 
@@ -139,6 +139,16 @@ def get_output_dtype():
         ('pgauss_band_flux_i_nodered', 'f4'),
         ('pgauss_band_flux_z_nodered', 'f4'),
     ]
+
+    if run_on_sim:
+        _dtype += [
+            ('ra_noshear', 'f8'),
+            ('dec_noshear', 'f8'),
+            ('x_noshear', 'f4'),
+            ('y_noshear', 'f4'),
+        ]
+
+    return _dtype
 
 
 def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts, run_on_sim):
@@ -198,7 +208,7 @@ def read_catalog(*, fname, uid_info, cuts_version, patches, keep_coarse_cuts, ru
     msk_final_cuts = make_mdet_cuts(orig_data, cuts_version)
 
     print('    making output data structure', flush=True)
-    data = make_output(orig_data, mdet_flags_keep=msk_final_cuts)
+    data = make_output(orig_data, mdet_flags_keep=msk_final_cuts, run_on_sim=run_on_sim)
     del orig_data
 
     print('    adding uids', flush=True)
